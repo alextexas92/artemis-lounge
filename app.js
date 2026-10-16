@@ -1013,7 +1013,12 @@
     } catch (e) { toast('That load link is incomplete'); }
   }
 
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    // When a newer version takes over, reload once so the update shows right away
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !window.__reloaded) { window.__reloaded = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+  }
   $('#helpBtn').addEventListener('click', openGuide);
   render();
   loadPhotos().then(() => { if (Object.keys(photoURL).length) render(); });
