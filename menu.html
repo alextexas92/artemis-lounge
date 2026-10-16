@@ -19,6 +19,7 @@
   button.drink:last-of-type { border-bottom:1px solid var(--line); }
   .drink b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.6rem; font-weight:600; }
   .drink span { color:var(--muted); font-size:.95rem; }
+  .drink .zp { display:table; margin-left:auto !important; margin-right:auto !important; font-style:normal; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:999px; padding:1px 8px; margin:2px 0 6px; }
   .pick { position:fixed; inset:0; background:rgba(10,5,12,.92); display:flex; align-items:center; justify-content:center; padding:24px; }
   .pick[hidden] { display:none; }
   .pick div { background:var(--panel); border:1px solid var(--gold); border-radius:18px; padding:28px 22px; max-width:420px; width:100%; }
@@ -46,7 +47,7 @@
     const data = JSON.parse(new TextDecoder().decode(bytes));
     document.title = data.t + ' · Cocktail Menu';
     m.innerHTML = `<h1>${esc(data.t)}</h1><div class="orn">✦ ✦ ✦</div><p class="hint">Tap a drink to choose it.</p>` +
-      data.d.map(([n, d], i) => `<button class="drink" data-i="${i}"><b>${esc(n)}</b><span>${esc(d)}</span></button>`).join('');
+      data.d.map(([n, d, z], i) => `<button class="drink" data-i="${i}"><b>${esc(n)}</b>${z ? '<em class="zp">zero proof</em>' : ''}<span>${esc(d)}</span></button>`).join('');
     const pick = document.getElementById('pick');
     let chosen = '';
     m.querySelectorAll('.drink').forEach((b) => b.addEventListener('click', () => {

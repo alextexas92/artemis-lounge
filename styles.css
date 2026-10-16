@@ -140,3 +140,39 @@ p.intro { color: var(--text); opacity: .85; margin: 4px 0 12px; font-size: .95re
 .guide-title { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; color: var(--gold); }
 .guide-step p { margin: 4px 0 0; color: var(--text); opacity: .9; }
 .topbar { max-width: 760px; margin: 0 auto; }
+
+/* Favorites, notes and photos */
+.fav { color: var(--gold); }
+.gold { color: var(--gold); }
+.note-line { color: var(--text); opacity: .75; font-size: .85rem; margin-top: 6px; font-style: italic; }
+.card .thumb { flex: none; width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.recipe .hero { display: block; width: 100%; max-height: 320px; object-fit: cover; border-radius: var(--radius); margin: 4px 0 12px; }
+.star { flex: none; background: none; border: 0; font-size: 2rem; line-height: 1; color: var(--gold-dim); cursor: pointer; padding: 4px; }
+.star.on { color: var(--gold); }
+
+/* Party batches */
+.serves { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+.serves button { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 5px 12px; font-size: .88rem; cursor: pointer; }
+.serves button.on { background: var(--gold); color: #1b1020; border-color: var(--gold); font-weight: 600; }
+.batch-tip { border-left: 3px solid var(--gold-dim); padding-left: 10px; }
+
+/* Bottles / Wine switch */
+.seg { display: flex; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 6px 0 4px; }
+.seg button { flex: 1; border: 0; background: var(--panel); padding: 10px 0; cursor: pointer; color: var(--muted); font-weight: 600; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--gold); color: #1b1020; }
+h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-spacing: 0; font-size: .95rem; }
+.counter { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.counter button { width: 44px; height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); font-size: 1.3rem; cursor: pointer; }
+.counter span { min-width: 6em; text-align: center; }
+.rate { display: flex; gap: 4px; margin-top: 4px; }
+.rate button { background: none; border: 0; font-size: 1.8rem; color: var(--line); cursor: pointer; padding: 0 2px; }
+.rate button.on { color: var(--gold); }
+.pair { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pair .name { font-weight: 600; }
+.pair p { margin: 4px 0; opacity: .9; }
+.pair .meta { color: var(--muted); font-size: .85rem; }
+
+/* Printed menu extras */
+.pmenu .pphoto { display: block; width: 120px; height: 120px; object-fit: cover; border-radius: 50%; margin: 0 auto 6px; }
+.pmenu .drink b i { font-family: var(--sans); font-style: normal; font-size: 8pt; letter-spacing: .1em; text-transform: uppercase; color: #9c8143; vertical-align: middle; }
