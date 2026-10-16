@@ -15,7 +15,7 @@
   const GROUP_ORDER = ['Spirits', 'Liqueurs & Aperitifs', 'Wine', 'Mixers', 'Juices', 'Syrups', 'Bitters & Brine', 'Fresh & Pantry', 'Other'];
 
   // ── State ────────────────────────────────────────────────────────────
-  const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [] });
+  const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [], dinner: { title: 'Dinner at Artemis Lounge', courses: [] } });
   let state = load();
 
   function load() {
@@ -743,10 +743,14 @@
   }
   function menuRecipes() { return state.menu.ids.map(recipeById).filter(Boolean); }
 
+  function menuSwitch() {
+    return `<div class="seg" role="tablist"><button role="tab" class="${ui.menuView !== 'dinner' ? 'on' : ''}" data-mview="drinks">Drinks menu</button><button role="tab" class="${ui.menuView === 'dinner' ? 'on' : ''}" data-mview="dinner">Dinner pairing</button></div>`;
+  }
   function renderMenu(v) {
+    if (ui.menuView === 'dinner') return renderDinner(v);
     const items = menuRecipes();
     const have = stockedKeys();
-    v.innerHTML = `
+    v.innerHTML = `${menuSwitch()}
       <h2>Tonight’s menu</h2>
       <ol class="steps-list">
         <li>Tap <b>Choose drinks</b> and tick the ones you’ll offer.</li>
@@ -766,6 +770,7 @@
       <button class="btn small danger" id="clearMenu">Clear menu</button>` : '<div class="empty">No drinks on the menu yet.</div>'}`;
     $('#mTitle', v).addEventListener('change', (e) => { state.menu.title = e.target.value.trim() || 'Artemis Lounge'; save(); });
     $('#pick', v).onclick = pickDrinks;
+    v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
     v.querySelectorAll('[data-recipe]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.recipe)));
     v.querySelectorAll('[data-note]').forEach((t) => t.addEventListener('change', () => { state.menu.notes[t.dataset.note] = t.value.trim(); save(); }));
     if (items.length) {
@@ -827,6 +832,152 @@
       <div class="foot">Scan to see this menu on your phone<div id="pqr" style="display:inline-block"></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     await Promise.all([...area.querySelectorAll('img.pphoto')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
+    setTimeout(() => window.print(), 300);
+  }
+
+  // ── Dinner pairing ───────────────────────────────────────────────────
+  const STYLES = window.AL_FOOD_STYLES;
+  function guessStyle(dish, course) {
+    const d = (dish || '').toLowerCase();
+    // Course hints win for dessert and after-dinner so "lemon tart" is not read as seafood
+    const order = course === 'Dessert' ? ['chocolate', 'fruit'] : course === 'After dinner' ? ['digestif', 'chocolate'] : course === 'Cheese' ? ['cheese'] : [];
+    for (const k of order.concat(Object.keys(STYLES))) if (d && new RegExp(STYLES[k].match).test(d)) return k;
+    return window.AL_COURSE_DEFAULT[course] || 'poultry';
+  }
+  function rackMatches(st) {
+    const grapes = st.grapes.map((g) => g.toLowerCase());
+    const rack = state.wines.filter((w) => !w.wish && w.count > 0);
+    const byGrape = rack.filter((w) => grapes.some((g) => `${w.name} ${w.grape} ${w.region}`.toLowerCase().includes(g)));
+    const byType = rack.filter((w) => !byGrape.includes(w) && st.types[0] === w.type);
+    return byGrape.concat(byType).slice(0, 4);
+  }
+  function courseOptions(c) {
+    const st = STYLES[c.style] || STYLES.poultry;
+    const have = stockedKeys();
+    const rack = rackMatches(st);
+    const wines = rack.map((w) => ({ v: w.name, label: w.name, mine: true })).concat(st.grapes.slice(0, 3).map((g) => ({ v: g, label: g })));
+    const drinks = st.drinks.map(recipeById).filter(Boolean).map((r) => ({ r, ok: check(r, have).ok })).sort((a, b) => b.ok - a.ok);
+    const neat = (st.neat || []).map((k) => { const b = state.bottles.find((x) => x.key === k && x.level !== 'out'); return { v: b ? b.name : label(k), mine: !!b }; });
+    return { st, wines, drinks, neat, zp: recipeById(st.zp) };
+  }
+  function fillDefaults(c) {
+    const o = courseOptions(c);
+    if (c.wine == null) c.wine = o.wines[0].v;
+    if (c.drink == null) {
+      // Prefer a cocktail no other course is already pouring
+      const taken = new Set(state.dinner.courses.filter((x) => x !== c).map((x) => x.drink));
+      const pick = o.drinks.find((d) => d.ok && !taken.has(d.r.id)) || o.drinks.find((d) => d.ok) || o.drinks.find((d) => !taken.has(d.r.id)) || o.drinks[0];
+      c.drink = pick ? pick.r.id : '';
+    }
+    if (c.neat == null) c.neat = '';
+    return o;
+  }
+
+  function renderDinner(v) {
+    const D = state.dinner;
+    const used = new Set(D.courses.map((c) => c.course));
+    v.innerHTML = `${menuSwitch()}
+      <h2>Dinner pairing</h2>
+      <ol class="steps-list">
+        <li>Add each course and type the dish.</li>
+        <li>Check the food style. The app guesses it from the dish, and you can change it.</li>
+        <li>Tap the wine, cocktail or neat pour you want for each course. Bottles you own are marked.</li>
+        <li>Share the dinner menu with guests, or print it.</li>
+      </ol>
+      <label class="field">Dinner title<input id="dTitle" value="${esc(D.title)}"></label>
+      ${D.courses.map((c, i) => courseCard(c, i)).join('') || '<div class="empty">No courses yet. Add your first one below.</div>'}
+      <div class="row add-course"><select id="dCourse" class="grow">${window.AL_COURSES.map((n) => `<option ${used.has(n) ? '' : ''}>${n}</option>`).join('')}</select><button class="btn" id="dAdd">Add course</button></div>
+      ${D.courses.length ? `<div class="btn-row"><button class="btn primary" id="dShare">Guest link &amp; QR</button><button class="btn" id="dPrint">Print dinner menu</button></div>
+      <button class="btn block" id="dToMenu">Add these cocktails to the drinks menu</button>
+      <button class="btn small danger" id="dClear" style="margin-top:12px">Clear dinner</button>` : ''}`;
+    save();
+    v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
+    $('#dTitle', v).addEventListener('change', (e) => { D.title = e.target.value.trim() || 'Dinner at Artemis Lounge'; save(); });
+    const sel = $('#dCourse', v);
+    const next = window.AL_COURSES.find((n) => !used.has(n)); if (next) sel.value = next;
+    $('#dAdd', v).onclick = () => { D.courses.push({ id: uid(), course: sel.value, dish: '', style: window.AL_COURSE_DEFAULT[sel.value] }); save(); render(); };
+    const find = (el) => D.courses.find((c) => c.id === el.closest('[data-course]').dataset.course);
+    v.querySelectorAll('[data-dish]').forEach((inp) => inp.addEventListener('change', () => {
+      const c = find(inp); c.dish = inp.value.trim();
+      if (!c.styleTouched) { const ns = guessStyle(c.dish, c.course); if (ns !== c.style) { c.style = ns; c.wine = c.drink = c.neat = null; } }
+      save(); render();
+    }));
+    v.querySelectorAll('[data-style]').forEach((s) => s.addEventListener('change', () => { const c = find(s); c.style = s.value; c.styleTouched = true; c.wine = c.drink = c.neat = null; save(); render(); }));
+    v.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => {
+      const c = find(b); const [kind, val] = [b.dataset.pick, b.dataset.val];
+      c[kind] = c[kind] === val ? '' : val; save(); render();
+    }));
+    v.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.open)));
+    v.querySelectorAll('[data-cmove]').forEach((b) => b.addEventListener('click', () => {
+      const i = D.courses.indexOf(find(b)), j = i + +b.dataset.cmove;
+      if (j < 0 || j >= D.courses.length) return;
+      [D.courses[i], D.courses[j]] = [D.courses[j], D.courses[i]]; save(); render();
+    }));
+    v.querySelectorAll('[data-cdel]').forEach((b) => b.addEventListener('click', () => { const c = find(b); if (confirm(`Remove ${c.course}?`)) { D.courses.splice(D.courses.indexOf(c), 1); save(); render(); } }));
+    if (D.courses.length) {
+      $('#dShare', v).onclick = shareDinner;
+      $('#dPrint', v).onclick = printDinner;
+      $('#dToMenu', v).onclick = () => {
+        let n = 0; D.courses.forEach((c) => { if (c.drink && !state.menu.ids.includes(c.drink)) { state.menu.ids.push(c.drink); n++; } });
+        save(); toast(n ? `Added ${n} cocktail${n > 1 ? 's' : ''} to the drinks menu` : 'Those cocktails are already on the menu');
+      };
+      $('#dClear', v).onclick = () => { if (confirm('Clear all courses?')) { D.courses = []; save(); render(); } };
+    }
+  }
+
+  function courseCard(c, i) {
+    const o = fillDefaults(c);
+    const chip = (kind, val, text, mine, ok) => `<button class="pchip ${c[kind] === val ? 'on' : ''}" data-pick="${kind}" data-val="${esc(val)}">${esc(text)}${mine ? ' <span class="mine">yours</span>' : ''}${ok === false ? ' <span class="need">need a bottle</span>' : ''}</button>`;
+    return `<div class="course" data-course="${esc(c.id)}">
+      <div class="row"><div class="grow course-name">${i + 1}. ${esc(c.course)}</div>
+        <button class="btn small" data-cmove="-1" aria-label="Move up">↑</button><button class="btn small" data-cmove="1" aria-label="Move down">↓</button><button class="btn small danger" data-cdel="1" aria-label="Remove course">✕</button></div>
+      <label class="field">Dish<input data-dish="1" value="${esc(c.dish)}" placeholder="e.g. Seared scallops with lemon butter"></label>
+      <label class="field">Food style<select data-style="1">${Object.entries(STYLES).map(([k, s]) => `<option value="${k}" ${k === c.style ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
+      <p class="hint">${esc(o.st.why)}</p>
+      <div class="pick-label">Wine</div><div class="pchips">${o.wines.map((w) => chip('wine', w.v, w.label, w.mine)).join('')}</div>
+      <div class="pick-label">Cocktail</div><div class="pchips">${o.drinks.map(({ r, ok }) => chip('drink', r.id, r.name, false, ok)).join('')}</div>
+      ${c.drink ? `<button class="linkish" data-open="${esc(c.drink)}">See the ${esc((recipeById(c.drink) || {}).name || '')} recipe</button>` : ''}
+      ${o.neat.length ? `<div class="pick-label">Neat or on the rocks</div><div class="pchips">${o.neat.map((n) => chip('neat', n.v, n.v, n.mine)).join('')}</div>` : ''}
+      ${o.zp ? `<div class="pick-label">Zero proof</div><button class="linkish" data-open="${esc(o.zp.id)}">${esc(o.zp.name)}</button>` : ''}
+    </div>`;
+  }
+
+  function dinnerData() {
+    const D = state.dinner;
+    return { k: 'dinner', t: D.title, c: D.courses.map((c) => {
+      fillDefaults(c);
+      const r = c.drink && recipeById(c.drink);
+      return [c.course, c.dish, [c.wine, r ? r.name : '', c.neat].filter(Boolean)];
+    }) };
+  }
+  async function encodeMenu(data) {
+    const json = JSON.stringify(data);
+    let bytes = new TextEncoder().encode(json), prefix = 'j';
+    if ('CompressionStream' in window) {
+      try {
+        const cs = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+        bytes = new Uint8Array(await new Response(cs).arrayBuffer()); prefix = 'z';
+      } catch (e) { bytes = new TextEncoder().encode(json); prefix = 'j'; }
+    }
+    let bin = ''; bytes.forEach((b) => { bin += String.fromCharCode(b); });
+    return new URL('menu.html#' + prefix + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), location.href).href;
+  }
+  async function shareDinner() {
+    const url = await encodeMenu(dinnerData());
+    openSheet(`<h2>Dinner menu</h2><p class="hint">Guests scan this with their phone camera to see each course and what’s poured with it.</p>
+      <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
+      <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Preview</a></div>`);
+    try { await makeQR($('#qrBox'), url, 240); } catch (e) { $('#qrBox').textContent = 'QR code needs an internet connection.'; }
+    $('#sendLink').onclick = () => shareText(state.dinner.title, `${state.dinner.title}\n${url}`);
+  }
+  async function printDinner() {
+    const d = dinnerData();
+    const url = await encodeMenu(d);
+    const area = $('#printArea');
+    area.innerHTML = `<div class="pmenu"><h1>${esc(d.t)}</h1><div class="orn">✦ ✦ ✦</div>
+      ${d.c.map(([course, dish, pours]) => `<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
+      <div class="foot">Scan to see this menu on your phone<div id="pqr" style="display:inline-block"></div></div></div>`;
+    try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     setTimeout(() => window.print(), 300);
   }
 
@@ -957,6 +1108,7 @@
     ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
+    ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap <b>Wine</b> to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
     ['🛒', 'Shop', 'The <b>Shop</b> tab lists Low and Out bottles, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. You can also add your own items and share the list.'],

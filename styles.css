@@ -176,3 +176,20 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 /* Printed menu extras */
 .pmenu .pphoto { display: block; width: 120px; height: 120px; object-fit: cover; border-radius: 50%; margin: 0 auto 6px; }
 .pmenu .drink b i { font-family: var(--sans); font-style: normal; font-size: 8pt; letter-spacing: .1em; text-transform: uppercase; color: #9c8143; vertical-align: middle; }
+
+/* Dinner pairing */
+.course { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin: 12px 0; }
+.course-name { font-family: var(--serif); font-size: 1.3rem; font-weight: 600; color: var(--gold); }
+.course .btn.small { min-width: 34px; padding: 4px 8px; }
+.pick-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 12px 0 6px; }
+.pchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pchip { border: 1px solid var(--line); background: var(--panel-2); border-radius: 12px; padding: 7px 11px; font-size: .9rem; cursor: pointer; text-align: left; }
+.pchip.on { background: var(--gold); color: #1b1020; border-color: var(--gold); font-weight: 600; }
+.pchip .mine { font-size: .7rem; color: var(--green); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; margin-left: 4px; }
+.pchip.on .mine { color: #1b1020; }
+.pchip .need { font-size: .7rem; color: var(--amber); margin-left: 4px; }
+.pchip.on .need { color: #5a3a00; }
+.linkish { background: none; border: 0; color: var(--gold); text-decoration: underline; padding: 6px 0; cursor: pointer; font-size: .9rem; }
+.add-course { margin: 14px 0; }
+.add-course select { padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
+.pmenu .pcourse { display: block; font-family: var(--sans); font-size: 8pt; letter-spacing: .14em; text-transform: uppercase; color: #9c8143; margin-bottom: 2px; }

@@ -26,6 +26,11 @@
   .pick b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:2.2rem; color:var(--gold); margin:6px 0 10px; }
   .btn { display:inline-block; margin:8px 4px 0; padding:11px 18px; border-radius:12px; border:1px solid var(--gold); background:var(--gold); color:#1b1020; font-weight:600; font:inherit; cursor:pointer; }
   .btn.ghost { background:none; color:var(--gold); }
+  .course { border-top:1px solid var(--line); padding:18px 6px; }
+  .course:last-of-type { border-bottom:1px solid var(--line); }
+  .course .cname { color:var(--gold); font-size:.75rem; letter-spacing:.14em; text-transform:uppercase; margin-bottom:4px; }
+  .course b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.5rem; font-weight:600; margin-bottom:6px; }
+  .course span { display:block; color:var(--muted); font-size:.95rem; }
   .err { color:var(--muted); margin-top:40px; }
 </style>
 </head>
@@ -45,6 +50,12 @@
     let bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
     if (kind === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
     const data = JSON.parse(new TextDecoder().decode(bytes));
+    if (data.k === 'dinner') {
+      document.title = data.t + ' · Dinner Menu';
+      m.innerHTML = `<h1>${esc(data.t)}</h1><div class="orn">✦ ✦ ✦</div>` +
+        data.c.map(([course, dish, pours]) => `<div class="course"><div class="cname">${esc(course)}</div>${dish ? `<b>${esc(dish)}</b>` : ''}${pours.map((x) => `<span>${esc(x)}</span>`).join('')}</div>`).join('');
+      return;
+    }
     document.title = data.t + ' · Cocktail Menu';
     m.innerHTML = `<h1>${esc(data.t)}</h1><div class="orn">✦ ✦ ✦</div><p class="hint">Tap a drink to choose it.</p>` +
       data.d.map(([n, d, z], i) => `<button class="drink" data-i="${i}"><b>${esc(n)}</b>${z ? '<em class="zp">zero proof</em>' : ''}<span>${esc(d)}</span></button>`).join('');
