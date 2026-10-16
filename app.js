@@ -671,6 +671,30 @@
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => go(b.dataset.tab)));
   window.addEventListener('afterprint', () => { $('#printArea').innerHTML = ''; });
 
+  // A "#load=..." link carries a whole bar (made from a backup), so a person can
+  // move their bar to a phone by tapping one link instead of transferring a file.
+  async function loadFromLink() {
+    const m = location.hash.match(/^#load=([jz])(.+)$/);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname);
+    try {
+      const b64 = m[2].replace(/-/g, '+').replace(/_/g, '/');
+      const bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+      let bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+      if (m[1] === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+      const d = JSON.parse(new TextDecoder().decode(bytes));
+      if (!Array.isArray(d.bottles)) throw new Error('no bottles');
+      const msg = state.bottles.length
+        ? `Load ${d.bottles.length} bottles? This replaces the ${state.bottles.length} already on this phone.`
+        : `Load ${d.bottles.length} bottles into your bar?`;
+      if (!confirm(msg)) return;
+      state = Object.assign(blank(), d);
+      state.menu = Object.assign(blank().menu, d.menu || {});
+      save(); render(); toast(`Loaded ${d.bottles.length} bottles`);
+    } catch (e) { toast('That load link is incomplete'); }
+  }
+
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   render();
+  loadFromLink();
 })();
