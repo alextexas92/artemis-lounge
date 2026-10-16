@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1020">
+<meta name="description" content="A home bar companion: what you can mix tonight, your bottles, a guest menu and a shopping list.">
+<title>Artemis Lounge</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <h1 class="brand"><span class="brand-mark" aria-hidden="true">☾</span> <span id="barName">Artemis Lounge</span></h1>
+</header>
+
+<main id="view" tabindex="-1"></main>
+
+<nav class="tabs" aria-label="Sections">
+  <button data-tab="make" class="active"><span class="ti" aria-hidden="true">🍸</span>Make</button>
+  <button data-tab="bar"><span class="ti" aria-hidden="true">🍾</span>My Bar</button>
+  <button data-tab="menu"><span class="ti" aria-hidden="true">📜</span>Menu</button>
+  <button data-tab="shop"><span class="ti" aria-hidden="true">🛒</span>Shop</button>
+  <button data-tab="more"><span class="ti" aria-hidden="true">⋯</span>More</button>
+</nav>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet-panel" role="dialog" aria-modal="true">
+    <button class="sheet-close" data-close aria-label="Close">✕</button>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<div id="printArea" class="print-only"></div>
+
+<script src="data.js"></script>
+<script src="barcodes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
