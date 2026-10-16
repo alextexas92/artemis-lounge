@@ -109,9 +109,10 @@
     const rest = rows.filter((x) => !x.c.ok && !close.includes(x));
 
     v.innerHTML = `
+      <p class="intro">Drinks you can mix with what’s in My Bar. Tap a drink for the full recipe.</p>
       <input class="search" id="q" type="search" placeholder="Search drinks or ingredients" value="${esc(ui.q)}" autocomplete="off">
       <div class="chips">${bases.map((b) => `<button class="chip ${b === ui.base ? 'on' : ''}" data-base="${esc(b)}">${esc(b)}</button>`).join('')}</div>
-      ${state.bottles.length ? '' : `<p class="hint">Add your bottles under <b>My Bar</b> and this page shows what you can make tonight.</p>`}
+      ${state.bottles.length ? '' : `<p class="hint">Your bar is empty, so nothing is ready yet. Add bottles under <b>My Bar</b>, or <a href="#" id="guideLink">see how it works</a>.</p>`}
       <h3>Ready to make <span class="count">${ready.length}</span></h3>
       <div class="list">${ready.map(card).join('') || '<div class="empty">Nothing yet. Add bottles in My Bar.</div>'}</div>
       ${close.length ? `<h3>One bottle away <span class="count">${close.length}</span></h3><div class="list">${close.map(card).join('')}</div>` : ''}
@@ -120,6 +121,7 @@
     const qi = $('#q', v);
     qi.addEventListener('input', () => { ui.q = qi.value; const pos = qi.selectionStart; renderMake(v); const n = $('#q', v); n.focus(); n.setSelectionRange(pos, pos); });
     v.querySelectorAll('[data-base]').forEach((b) => b.addEventListener('click', () => { ui.base = b.dataset.base; renderMake(v); }));
+    const gl = $('#guideLink', v); if (gl) gl.onclick = (e) => { e.preventDefault(); openGuide(); };
     v.querySelectorAll('[data-recipe]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.recipe)));
   }
   function card({ r, c }) {
@@ -238,7 +240,8 @@
         <button class="btn primary" id="scanBtn">Scan a bottle</button>
         <button class="btn" id="addBtn">Add by name</button>
       </div>
-      <p class="hint">A Bluetooth barcode scanner works too. Tap “Scan a bottle” and scan into the box.</p>
+      <p class="intro">Everything in your bar. Set each bottle’s level as you use it. <b>Low</b> adds it to Shop. <b>Out</b> stops recipes counting it.</p>
+      <p class="hint">Using a Bluetooth barcode scanner? Tap “Scan a bottle”, then scan. The number fills in by itself.</p>
       ${untyped ? `<p class="hint">${untyped} item${untyped > 1 ? 's need' : ' needs'} a type before recipes can count ${untyped > 1 ? 'them' : 'it'}. Tap Edit.</p>` : ''}
       ${state.bottles.length ? '' : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>More &gt; Restore</b>.</div>`}
       ${GROUP_ORDER.filter((g) => groups[g]).map((g) => `<h3>${esc(g)} <span class="count">${groups[g].length}</span></h3><div class="list">${groups[g].sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>`).join('')}`;
@@ -461,7 +464,12 @@
     const have = stockedKeys();
     v.innerHTML = `
       <h2>Tonight’s menu</h2>
-      <p class="hint">Pick drinks, then share a link or QR code guests open on their own phones, or print it. When a guest chooses, tap the drink here to see your recipe.</p>
+      <ol class="steps-list">
+        <li>Tap <b>Choose drinks</b> and tick the ones you’ll offer.</li>
+        <li>Edit what guests read under each drink, if you like.</li>
+        <li>Tap <b>Guest link &amp; QR</b> so guests can open it on their phones, or <b>Print menu</b>.</li>
+        <li>When a guest picks, tap that drink below to see your recipe.</li>
+      </ol>
       <label class="field">Menu title<input id="mTitle" value="${esc(state.menu.title)}"></label>
       <button class="btn block" id="pick">Choose drinks (${items.length})</button>
       ${items.length ? `<div>${items.map((r) => {
@@ -552,6 +560,7 @@
     const ideas = Object.entries(unlock).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
     v.innerHTML = `
       <h2>Shopping list</h2>
+      <p class="intro">Bottles you marked Low or Out, your own items, and the purchases that would unlock the most drinks.</p>
       <h3>Running low <span class="count">${low.length}</span></h3>
       ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : 'low'}</span></span><button class="btn small" data-restock="${esc(b.id)}">Bought it</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
       <h3>My list</h3>
@@ -583,6 +592,7 @@
   function renderMore(v) {
     v.innerHTML = `
       <h2>More</h2>
+      <button class="btn block" id="guideBtn">How to use Artemis Lounge</button>
       <label class="field">Name of your bar<input id="barIn" value="${esc(state.barName)}"></label>
       <h3>Recipes</h3>
       <button class="btn block" id="newRecipe">Add your own recipe</button>
@@ -597,6 +607,7 @@
       <p class="hint" style="margin-top:28px">Artemis Lounge is free to use. Each person’s bar stays on their own phone and is never uploaded.</p>`;
     $('#barIn', v).addEventListener('change', (e) => { state.barName = e.target.value.trim() || 'Artemis Lounge'; save(); render(); });
     $('#newRecipe', v).onclick = editRecipe;
+    $('#guideBtn', v).onclick = openGuide;
     $('#backup', v).onclick = backup;
     $('#restore', v).onclick = () => $('#restoreFile', v).click();
     $('#restoreFile', v).addEventListener('change', (e) => restore(e.target.files[0]));
@@ -651,6 +662,23 @@
     };
   }
 
+  // ── How-to guide ─────────────────────────────────────────────────────
+  const GUIDE = [
+    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera, or type the barcode number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
+    ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
+    ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>.'],
+    ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
+    ['🛒', 'Shop', 'The <b>Shop</b> tab lists Low and Out bottles, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. You can also add your own items and share the list.'],
+    ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>More</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],
+  ];
+  function openGuide() {
+    openSheet(`<h2>How Artemis Lounge works</h2>
+      ${GUIDE.map(([icon, title, text], i) => `<div class="guide-step"><div class="guide-icon" aria-hidden="true">${icon}</div><div><div class="guide-title">${i + 1}. ${title}</div><p>${text}</p></div></div>`).join('')}
+      <div class="btn-row"><button class="btn primary" id="guideDone">${state.bottles.length ? 'Got it' : 'Start with My Bar'}</button></div>`);
+    $('#guideDone').onclick = () => { closeSheet(); if (!state.bottles.length) go('bar'); };
+    if (!state.seenGuide) { state.seenGuide = true; save(); }
+  }
+
   // ── Sheet ────────────────────────────────────────────────────────────
   let onSheetClose = null;
   function openSheet(html, onClose) {
@@ -695,6 +723,8 @@
   }
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+  $('#helpBtn').addEventListener('click', openGuide);
   render();
   loadFromLink();
+  if (!state.seenGuide && !/^#load=/.test(location.hash)) setTimeout(openGuide, 400);
 })();
