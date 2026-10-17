@@ -665,7 +665,8 @@
     openSheet(`
       <h2>${scanMode === 'wine' ? 'Scan a wine' : 'Scan a bottle'}</h2>
       <label class="field">Barcode scanner or type the number<input id="codeIn" inputmode="numeric" autocomplete="off" placeholder="Scan now, or type digits and press Enter"></label>
-      <div class="btn-row"><button class="btn primary" id="camBtn">Use phone camera</button><button class="btn" id="nameBtn">No barcode? Add by name</button></div>
+      <div class="btn-row"><button class="btn primary" id="camBtn">Use phone camera</button><button class="btn" id="photoScan">Take a photo</button><button class="btn" id="nameBtn">No barcode? Add by name</button></div>
+      <input type="file" id="scanFile" accept="image/*" capture="environment" hidden>
       <div id="camArea"></div>
       <p class="hint" id="scanMsg"></p>`, stopCamera);
     const body = $('#sheetBody');
@@ -673,6 +674,8 @@
     setTimeout(() => codeIn.focus(), 250);
     codeIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleCode(codeIn.value.trim()); } });
     $('#camBtn', body).onclick = startCamera;
+    $('#photoScan', body).onclick = () => { stopCamera(); $('#camArea').innerHTML = ''; $('#scanFile', body).click(); };
+    $('#scanFile', body).addEventListener('change', (e) => { if (e.target.files[0]) scanPhoto(e.target.files[0]); e.target.value = ''; });
     $('#nameBtn', body).onclick = () => { stopCamera(); (scanMode === 'wine' ? editWine : editBottle)(null); };
   }
 
@@ -684,46 +687,96 @@
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
     } catch (e) { msg.textContent = 'Camera permission was not given. Type the number instead.'; area.innerHTML = ''; return; }
-    video.srcObject = stream; await video.play();
-    msg.textContent = 'Hold the barcode inside the gold box.';
+    video.srcObject = stream;
+    try { await video.play(); } catch (e) { /* iPhone may need a tap; the stream still runs */ }
+    msg.textContent = 'Hold the barcode inside the gold box, about 6 inches away. Not working? Tap Take a photo.';
 
-    let detect;
+    // Android has a built-in barcode reader, but on some phones it is missing or
+    // reads nothing, so ZXing (saved in vendor/) always runs as well. iPhone uses ZXing only.
+    let native = null, zx = null;
     if ('BarcodeDetector' in window) {
-      const det = new window.BarcodeDetector({ formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8', 'code_128'] });
-      detect = async () => { const r = await det.detect(video); return r[0] && r[0].rawValue; };
-    } else {
-      // iPhone Safari has no built-in detector, so load ZXing on demand
       try {
-        await loadScript('https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js');
-        const hints = new Map([[window.ZXing.DecodeHintType.TRY_HARDER, true]]);
-        const reader = new window.ZXing.BrowserMultiFormatReader(hints);
-        const canvas = document.createElement('canvas');
-        detect = async () => {
-          canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-          canvas.getContext('2d').drawImage(video, 0, 0);
-          try { return reader.decodeFromCanvas(canvas).getText(); } catch (e) { return null; }
-        };
-      } catch (e) { msg.textContent = 'Could not load the scanner. Type the number instead.'; return; }
+        const want = ['upc_a', 'upc_e', 'ean_13', 'ean_8', 'code_128'];
+        const have = window.BarcodeDetector.getSupportedFormats ? await window.BarcodeDetector.getSupportedFormats() : want;
+        const formats = want.filter((f) => have.includes(f));
+        if (formats.length) native = new window.BarcodeDetector({ formats });
+      } catch (e) { native = null; }
     }
-    // Require the same valid code twice in a row before accepting it
+    try { zx = await zxingReader(); } catch (e) { if (!native) { msg.textContent = 'Could not load the scanner. Tap Take a photo, or type the number.'; return; } }
+    const canvas = document.createElement('canvas');
+    let flip = false;
+    const detect = async () => {
+      if (native) { try { const r = await native.detect(video); if (r[0] && r[0].rawValue) return r[0].rawValue; } catch (e) { /* fall through to ZXing */ } }
+      if (!zx) return null;
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw) return null;
+      // Alternate between the middle band (where the gold box is) and the whole frame
+      flip = !flip;
+      const sy = flip ? Math.round(vh * 0.3) : 0, sh = flip ? Math.round(vh * 0.4) : vh;
+      const k = Math.min(1, 900 / vw);
+      canvas.width = Math.round(vw * k); canvas.height = Math.round(sh * k);
+      canvas.getContext('2d').drawImage(video, 0, sy, vw, sh, 0, 0, canvas.width, canvas.height);
+      return zx(canvas);
+    };
+    // Store barcodes carry a check digit, so one good read is enough.
+    // Other codes must read the same twice in a row.
     let last = null, busy = false;
     scanTimer = setInterval(async () => {
       if (busy || !stream) return; busy = true;
       try {
         const code = await detect();
         if (code && validCode(code)) {
-          if (code === last) { stopCamera(); area.innerHTML = ''; handleCode(code); }
+          if (/^\d+$/.test(code) || code === last) { stopCamera(); area.innerHTML = ''; handleCode(code); }
           last = code;
         }
       } catch (e) { /* keep trying */ }
       busy = false;
-    }, 250);
+    }, 200);
+  }
+
+  // Returns a function that reads a barcode from a canvas, or null if none is found.
+  let zxingP = null;
+  function zxingReader() {
+    if (!zxingP) zxingP = loadScript('vendor/zxing.min.js').then(() => {
+      const Z = window.ZXing, F = Z.BarcodeFormat;
+      const hints = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128]], [Z.DecodeHintType.TRY_HARDER, true]]);
+      const reader = new Z.MultiFormatReader(); reader.setHints(hints);
+      return (canvas) => {
+        try { return reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)))).getText(); }
+        catch (e) { return null; } finally { reader.reset(); }
+      };
+    }).catch((e) => { zxingP = null; throw e; });
+    return zxingP;
+  }
+  // Backup plan: read the barcode from a photo taken with the regular camera app.
+  async function scanPhoto(file) {
+    const msg = $('#scanMsg');
+    msg.textContent = 'Reading the photo…';
+    try {
+      const zx = await zxingReader();
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+      const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+      let code = null;
+      for (const max of [1200, 800, 1800]) {
+        const k = Math.min(1, max / Math.max(img.width, img.height));
+        canvas.width = Math.round(img.width * k); canvas.height = Math.round(img.height * k);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        code = zx(canvas);
+        if (code && validCode(code)) break;
+      }
+      URL.revokeObjectURL(img.src);
+      if (code && validCode(code)) { msg.textContent = ''; handleCode(code); }
+      else msg.textContent = 'Could not find a barcode in that photo. Get closer so the barcode fills most of the picture, keep it flat and sharp, and try again.';
+    } catch (e) { msg.textContent = 'Could not read that photo. Type the number instead.'; }
   }
 
   function loadScript(src) {
     return new Promise((res, rej) => {
-      if (document.querySelector(`script[src="${src}"]`)) return res();
-      const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+      if (document.querySelector(`script[src="${src}"][data-ok]`)) return res();
+      const s = document.createElement('script'); s.src = src;
+      s.onload = () => { s.dataset.ok = '1'; res(); };
+      s.onerror = () => { s.remove(); rej(new Error('load ' + src)); };
+      document.head.appendChild(s);
     });
   }
 
@@ -1140,7 +1193,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '13';
+  const APP_VERSION = '14';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1309,7 +1362,7 @@
 
   // ── How-to guide ─────────────────────────────────────────────────────
   const GUIDE = [
-    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera, or type the barcode number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
+    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. If the live camera has trouble, tap <b>Take a photo</b> and snap the barcode up close. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
     ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
     ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
