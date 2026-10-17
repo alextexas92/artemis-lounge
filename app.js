@@ -19,6 +19,7 @@
     ['liqueurs', 'Liqueurs', ['Liqueurs & Aperitifs']],
     ['wine', 'Wine', ['Wine']],
     ['beer', 'Beer & Cider', ['Beer & Cider']],
+    ['premix', 'Premix', []],
     ['mixers', 'Mixers & Juices', ['Mixers', 'Juices']],
     ['syrups', 'Syrups & Bitters', ['Syrups', 'Bitters & Brine']],
     ['garnish', 'Garnish & Fresh', ['Fresh & Pantry']],
@@ -27,7 +28,7 @@
   const CAT_GUESS = [
     ['beer', /\b(beer|lager|ipa|stout|porter|pilsner|cider|hard seltzer|white claw|modelo|corona|michelob)\b/i],
     ['wine', /\b(wine|prosecco|champagne|cava|ros[ée]|merlot|cabernet|chardonnay|pinot|riesling|sangria)\b/i],
-    ['liqueurs', /espresso martini|cream liqueur|baileys|rumchata/i],
+    ['liqueurs', /cream liqueur|baileys|rumchata/i],
     ['mixers', /craft & pour|stirrings|\bmix(er)?\b|cream of coconut/i],
     ['spirits', /\b(vodka|gin|rum|tequila|mezcal|whiske?y|bourbon|scotch|rye|brandy|cognac)\b/i],
     ['liqueurs', /liqueur|schnapps|amaro|aperitif|vermouth|\bcr[eè]me de\b/i],
@@ -35,8 +36,13 @@
     ['mixers', /juice|soda|tonic|ginger (beer|ale)|cola|lemonade|\bsour\b|water/i],
     ['garnish', /olive|cherr|\blimes?\b|\blemons?\b|orange peel|mint|garnish|salt|sugar|cream|egg|espresso|coffee/i],
   ];
+  // Ready-to-drink cocktails: bottled or canned drinks you pour as is.
+  // "Margarita mix" and the like stay in Mixers.
+  const PREMIX = /\b(espresso martini|premix(ed)?|pre-mix(ed)?|ready[- ]to[- ]drink|rtd|canned cocktails?|bottled cocktails?|cutwater|buzzballz?|on the rocks|crafthouse|tip top|club cocktails|long drink|ranch water|margarita|mojito|old fashioned|cosmopolitan|paloma|moscow mule|pi[ñn]a colada|daiquiri|manhattan|negroni|mai tai|bloody mary)\b/i;
+  const isPremix = (name) => PREMIX.test(name || '') && !/\bmix(er)?\b|\bsalt\b|\brim\b|\bsyrup\b|\bglass/i.test(name || '');
   function catOf(b) {
     if (b.cat) return b.cat;
+    if (isPremix(b.name)) return 'premix';
     if (b.key) { const g = groupOf(b.key); const c = CATS.find((x) => x[2].includes(g)); if (c) return c[0]; }
     const hit = CAT_GUESS.find(([, re]) => re.test(b.name || ''));
     return hit ? hit[0] : 'other';
@@ -1350,7 +1356,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '18';
+  const APP_VERSION = '19';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
