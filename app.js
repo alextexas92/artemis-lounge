@@ -49,7 +49,7 @@
   }
 
   // ── State ────────────────────────────────────────────────────────────
-  const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [], dinner: { title: 'Dinner at Artemis Lounge', courses: [] }, zip: '' });
+  const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [], dinner: { title: 'Dinner at Artemis Lounge', courses: [] }, zip: '', types: {} });
   let state = load();
 
   function load() {
@@ -63,11 +63,15 @@
     } catch (e) { /* storage blocked or damaged: start fresh */ }
     return blank();
   }
+  // Types she named herself ("Peppermint Vodka") join the built-in ingredient list
+  function applyTypes() { Object.entries(state.types || {}).forEach(([k, v]) => { ING[k] = v; }); }
   function save() {
+    applyTypes();
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
     catch (e) { toast('Could not save on this device. Use More > Backup.'); }
   }
   const uid = () => Math.random().toString(36).slice(2, 9);
+  applyTypes();
 
   // ── Helpers ──────────────────────────────────────────────────────────
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -595,7 +599,26 @@
     const byGroup = {};
     Object.entries(ING).forEach(([k, v]) => { if (!PANTRY.has(k)) (byGroup[v.group] = byGroup[v.group] || []).push([k, v.label]); });
     return `<option value="">Not used in recipes</option>` + GROUP_ORDER.filter((g) => byGroup[g]).map((g) =>
-      `<optgroup label="${esc(g)}">${byGroup[g].sort((a, b) => a[1].localeCompare(b[1])).map(([k, l]) => `<option value="${k}" ${k === selected ? 'selected' : ''}>${esc(l)}</option>`).join('')}</optgroup>`).join('');
+      `<optgroup label="${esc(g)}">${byGroup[g].sort((a, b) => a[1].localeCompare(b[1])).map(([k, l]) => `<option value="${k}" ${k === selected ? 'selected' : ''}>${esc(l)}</option>`).join('')}</optgroup>`).join('') +
+      `<option value="__new">＋ Not listed? Name it yourself</option>`;
+  }
+  // Make a new type from a name she typed, then link any of her recipes that use it
+  function addType(name, cat) {
+    const lbl = name.trim().replace(/\s+/g, ' ');
+    const key = 'my-' + lbl.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    if (!ING[key]) {
+      const c = CATS.find((x) => x[0] === cat);
+      state.types = state.types || {};
+      state.types[key] = { label: lbl, group: (c && c[2][0]) || 'Other' };
+      applyTypes();
+    }
+    relinkRecipes();
+    return key;
+  }
+  // Her recipes get another look after she names a new type: unplaced ingredients, and
+  // ones that now match her more specific type ("peppermint vodka" moves from Vodka)
+  function relinkRecipes() {
+    state.custom.forEach((r) => r.ingredients.forEach((i) => { const k = guessKey(i.name); if (k && (!i.keys.length || k.startsWith('my-'))) i.keys = [k]; }));
   }
 
   // Guess the ingredient type from a product name. Word-boundary matches only,
@@ -619,6 +642,10 @@
   ];
   function guessKey(name) {
     const n = ` ${(name || '').toLowerCase()} `;
+    // Her own types come first, since they are more specific ("Peppermint Vodka" before "Vodka")
+    const own = Object.entries(state.types || {}).map(([k, v]) => [k, v.label.toLowerCase().split(/\s+/).filter((w) => w.length > 1)])
+      .filter(([, ws]) => ws.length && ws.every((w) => n.includes(w))).sort((a, b) => b[1].length - a[1].length)[0];
+    if (own) return own[0];
     for (const [pat, key] of GUESS) if (new RegExp(pat.startsWith('\\b') ? pat : `\\b(?:${pat})`).test(n)) return key;
     return '';
   }
@@ -634,6 +661,7 @@
       <label class="field">Name<input id="bName" value="${esc(d.name)}" placeholder="e.g. Tanqueray London Dry Gin" autocomplete="off"></label>
       <label class="field">Category<select id="bCat">${CATS.map(([k, t]) => `<option value="${k}" ${k === catOf(d) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       <label class="field">What is it? (recipes use this)<select id="bKey">${typeOptions(d.key)}</select></label>
+      <label class="field" id="bNewWrap" hidden>Name the type, like Peppermint Vodka or Mezcal. Any recipe you add later that uses it will find this bottle.<input id="bNewType" autocomplete="off"></label>
       <label class="field">Size (optional)<input id="bSize" value="${esc(d.size)}" placeholder="750ml"></label>
       <div class="field">How many bottles<div class="qty big" role="group" aria-label="Number of bottles"><button type="button" id="bQm" aria-label="One fewer">−</button><input id="bQty" type="number" inputmode="numeric" min="1" value="${d.qty || 1}"><button type="button" id="bQp" aria-label="One more">+</button></div></div>
       <div class="btn-row"><button class="btn primary" id="bSave">${isNew ? 'Add to My Bar' : 'Save'}</button>
@@ -645,7 +673,11 @@
     if (bl) { bl.onclick = () => $('#bLabelIn', body).click(); $('#bLabelIn', body).addEventListener('change', (e) => { const f = e.target.files[0]; if (f) { scanMode = 'bar'; scanLabel(f, { barcode: d.barcode, size: $('#bSize', body).value.trim() }); } }); }
     const syncCat = () => { if (!catIn.dataset.touched) catIn.value = catOf({ name: nameIn.value, key: keyIn.value }); };
     nameIn.addEventListener('input', () => { if (isNew && !keyIn.dataset.touched) keyIn.value = guessKey(nameIn.value); if (!(prefill && prefill.cat)) syncCat(); });
-    keyIn.addEventListener('change', () => { keyIn.dataset.touched = '1'; syncCat(); });
+    keyIn.addEventListener('change', () => {
+      keyIn.dataset.touched = '1';
+      const nw = keyIn.value === '__new'; $('#bNewWrap', body).hidden = !nw;
+      if (nw) setTimeout(() => $('#bNewType', body).focus(), 50); else syncCat();
+    });
     catIn.addEventListener('change', () => { catIn.dataset.touched = '1'; });
     if (prefill && prefill.cat) catIn.dataset.touched = '1';
     if (isNew && !d.name) setTimeout(() => nameIn.focus(), 250);
@@ -654,6 +686,11 @@
     $('#bQp', body).onclick = () => { qIn.value = (parseInt(qIn.value, 10) || 1) + 1; };
     $('#bSave', body).onclick = () => {
       d.name = nameIn.value.trim(); d.key = keyIn.value || null; d.size = $('#bSize', body).value.trim();
+      if (d.key === '__new') {
+        const t = $('#bNewType', body).value.trim();
+        if (!t) { toast('Name the type, or pick one from the list'); $('#bNewType', body).focus(); return; }
+        d.key = addType(t, catIn.value);
+      }
       d.qty = Math.max(1, parseInt(qIn.value, 10) || 1); if (d.qty === 1) delete d.qty;
       // Keep the category only when it differs from what the type implies
       const auto = catOf({ name: d.name, key: d.key }); if (catIn.value !== auto) d.cat = catIn.value; else delete d.cat;
@@ -1385,7 +1422,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '22';
+  const APP_VERSION = '23';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1558,7 +1595,7 @@
 
   // ── How-to guide ─────────────────────────────────────────────────────
   const GUIDE = [
-    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. No luck? Tap <b>Photo of the label</b> and snap the front of the bottle, or <b>Photo of the barcode</b>. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
+    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. No luck? Tap <b>Photo of the label</b> and snap the front of the bottle, or <b>Photo of the barcode</b>. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it. Not in the list? Pick <b>Not listed? Name it yourself</b> and type it in, like Peppermint Vodka. Recipes you add later will find it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
     ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
     ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
