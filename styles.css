@@ -242,7 +242,15 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 [hidden]{display:none !important}
 #clearMenu { margin-top: 18px; }
 #packBtn { margin-top: 10px; }
-/* One printed page: measured off screen at page width, then zoomed to fit */
+/* One printed page: measured off screen at page width, then scaled to fit */
 @page { margin: 0.4in; }
-#printArea.measure { display: block !important; position: absolute; left: -10000px; top: 0; width: 7.4in; background: #fff; }
-@media print { .pmenu { padding: 0; } .pmenu, .pmenu .pframe { break-inside: avoid; page-break-inside: avoid; } }
+#printArea.measure { display: block !important; position: absolute; left: -10000px; top: 0; width: 7in; background: #fff; }
+.pmenu { box-sizing: border-box; transform-origin: top left; }
+@media print {
+  html, body { background: #fff !important; padding: 0 !important; margin: 0 !important; height: auto !important; overflow: visible !important; }
+  #printArea { width: 7in; margin: 0 auto; overflow: hidden; break-after: avoid; }
+  .pmenu, .pmenu .pframe, .pmenu .drink { break-inside: avoid; page-break-inside: avoid; }
+}
+.pmenu.two .plist { column-count: 2; column-gap: 40px; }
+.pmenu.two .plist .drink { display: inline-block; width: 100%; }
+.pmenu.two .plist .psec { break-after: avoid; }

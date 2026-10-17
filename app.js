@@ -1283,16 +1283,32 @@
   const P_DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
   // Phones block print() unless it runs right on a tap. The menu takes a moment to
   // build (QR code, photos), so a second tap starts the print.
-  // Shrink the printed menu to fit one page. Sized for both Letter and A4 with 0.4in margins.
+  // Shrink the printed menu to fit one page. Phones add their own print margins, so the
+  // target is smaller than Letter or A4. Scaling uses transform, which every browser prints.
   function fitOnePage() {
     const area = $('#printArea'), m = area.querySelector('.pmenu');
     if (!m) return;
-    m.style.zoom = '';
+    const W = 7 * 96, H = 9.2 * 96;
+    const scaleFor = () => {
+      m.style.width = ''; let z = 1, h = m.scrollHeight;
+      for (let i = 0; i < 4 && h * z > H; i++) { z = H / h; m.style.width = `${W / z}px`; h = m.scrollHeight; }
+      return { z: Math.min(1, H / h), h };
+    };
+    m.style.transform = area.style.height = '';
+    m.classList.remove('two');
     area.classList.add('measure');
-    const h = m.scrollHeight, w = m.scrollWidth;
+    let fit = scaleFor();
+    // Long menus read better in two columns than in tiny print
+    if (fit.z < 0.85 && m.querySelectorAll('.plist .drink').length > 5) {
+      m.classList.add('two');
+      const two = scaleFor();
+      if (two.z > fit.z) fit = two; else m.classList.remove('two');
+    }
+    m.style.width = `${W / fit.z}px`;
+    const h = m.scrollHeight;
     area.classList.remove('measure');
-    const z = Math.min(1, (10.1 * 96) / h, (7.4 * 96) / w);
-    if (z < 1) m.style.zoom = String(Math.floor(z * 100) / 100);
+    m.style.transform = `scale(${fit.z})`;
+    area.style.height = `${Math.ceil(h * fit.z) + 2}px`;
   }
   function readyToPrint() {
     fitOnePage();
@@ -1310,7 +1326,7 @@
     const url = await menuLink();
     const area = $('#printArea');
     area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<h1>${esc(state.menu.title)}</h1>${P_RULE}
-      ${withHeadings(menuRecipes(), (r, first) => `${first ? '' : P_DOT}<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}
+      <div class="plist">${withHeadings(menuRecipes(), (r, first) => `${first ? '' : P_DOT}<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}</div>
       ${foodForPrint()}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
@@ -1576,7 +1592,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '29';
+  const APP_VERSION = '30';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
