@@ -606,6 +606,7 @@
     openSheet(`
       <h2>${isNew ? 'Add a bottle' : 'Edit bottle'}</h2>
       ${d.barcode ? `<p class="hint">Barcode ${esc(d.barcode)}</p>` : ''}
+      ${isNew && !d.name ? `<button class="btn block" id="bLabel">📷 Fill in from a photo of the label</button><input type="file" id="bLabelIn" accept="image/*" capture="environment" hidden><p class="hint" id="scanMsg"></p>` : ''}
       <label class="field">Name<input id="bName" value="${esc(d.name)}" placeholder="e.g. Tanqueray London Dry Gin" autocomplete="off"></label>
       <label class="field">Category<select id="bCat">${CATS.map(([k, t]) => `<option value="${k}" ${k === catOf(d) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       <label class="field">What is it? (recipes use this)<select id="bKey">${typeOptions(d.key)}</select></label>
@@ -615,6 +616,8 @@
     const body = $('#sheetBody');
     const nameIn = $('#bName', body), keyIn = $('#bKey', body);
     const catIn = $('#bCat', body);
+    const bl = $('#bLabel', body);
+    if (bl) { bl.onclick = () => $('#bLabelIn', body).click(); $('#bLabelIn', body).addEventListener('change', (e) => { const f = e.target.files[0]; if (f) { scanMode = 'bar'; scanLabel(f, { barcode: d.barcode, size: $('#bSize', body).value.trim() }); } }); }
     const syncCat = () => { if (!catIn.dataset.touched) catIn.value = catOf({ name: nameIn.value, key: keyIn.value }); };
     nameIn.addEventListener('input', () => { if (isNew && !keyIn.dataset.touched) keyIn.value = guessKey(nameIn.value); if (!(prefill && prefill.cat)) syncCat(); });
     keyIn.addEventListener('change', () => { keyIn.dataset.touched = '1'; syncCat(); });
@@ -750,7 +753,11 @@
     for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
     return d[a.length][b.length];
   }
-  function parseLabel(text) {
+  const STATES = /^(alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new|hampshire|jersey|mexico|york|carolina|dakota|ohio|oklahoma|oregon|pennsylvania|rhode|island|tennessee|texas|utah|vermont|virginia|washington|west|wisconsin|wyoming|scotland|ireland|france|italy|jalisco|kentucky|usa|america|american)$/i;
+  const TYPE_WORDS = ['vodka', 'gin', 'rum', 'tequila', 'mezcal', 'whiskey', 'whisky', 'bourbon', 'rye', 'scotch', 'brandy', 'cognac', 'liqueur', 'cassis', 'amaretto', 'vermouth', 'bitters', 'schnapps', 'aperitif', 'aperitivo', 'amaro', 'absinthe', 'triple sec', 'limoncello', 'sambuca', 'curaçao', 'curacao', 'cream', 'cordial', 'sherry', 'port', 'syrup', 'tonic', 'mixer'];
+  // lines: [{ text, h }] where h is the letter height, so the big words on a label win.
+  function parseLabel(lines) {
+    const text = lines.map((l) => l.text).join('\n');
     const flat = text.replace(/\s+/g, ' ');
     const low = flat.toLowerCase();
     // Only trust the usual bottle sizes, since small print often misreads
@@ -771,46 +778,108 @@
       const score = kw.filter((w) => words.has(w)).length / kw.length;
       if (score > bestScore) { bestScore = score; best = k; }
     }
-    if (best && bestScore >= 0.6) return { name: best.name, key: best.key || guessKey(best.name), size: size || best.size || "", sure: true };
-    // 2. Otherwise build a name from the big words on the label.
-    // Brand names are matched loosely, since fancy fonts often lose a letter or two.
+    if (best && bestScore >= 0.6) return { name: best.name, key: best.key || guessKey(best.name), size: size || best.size || '', sure: true };
+    // 2. Otherwise build a name. Brand names are matched loosely, since fancy fonts lose letters.
     const toks = (text.match(/[A-Za-zÀ-ÿ0-9'&]+/g) || []);
-    let brand = null, brandTok = null;
+    let brand = null;
+    const tokLow = toks.map((x) => x.toLowerCase().replace(/[^a-zà-ÿ0-9]/g, ''));
+    const tokMatch = (bw) => tokLow.some((w) => w === bw || (w.length >= 4 && bw.length >= 5 && editDist(w, bw) <= Math.floor(bw.length / 4)) || (w.length >= 5 && bw.length >= 6 && bw.includes(w)));
     for (const b of BRANDS) {
-      const first = b.toLowerCase().split(' ')[0].replace(/[^a-zà-ÿ0-9]/g, '');
-      if (first.length < 4) { if (low.includes(b.toLowerCase())) { brand = b; break; } continue; }
-      const t = toks.find((x) => { const w = x.toLowerCase().replace(/[^a-zà-ÿ0-9]/g, ''); return w.length >= 4 && (w === first || editDist(w, first) <= Math.floor(first.length / 4) || (w.length >= 5 && first.includes(w))); });
-      if (t) { brand = b; brandTok = t; break; }
+      const bws = b.toLowerCase().split(' ').map((w) => w.replace(/[^a-zà-ÿ0-9]/g, '')).filter((w) => w.length >= 3 && /[a-zà-ÿ]/.test(w));
+      if (!bws.length || bws[0].length < 4) { if (low.includes(b.toLowerCase())) { brand = b; break; } continue; }
+      // Every word of a brand must show up, so "Mount Defiance" never reads as "Mount Gay"
+      if (bws.every(tokMatch)) { brand = b; break; }
     }
-    const lines = text.split('\n').map((l) => l.replace(/[^A-Za-zÀ-ÿ0-9'&. -]/g, ' ').replace(/\s+/g, ' ').trim())
-      .filter((l) => l.length >= 3 && l.length <= 30 && !LABEL_NOISE.test(l) && (l.match(/[A-Za-zÀ-ÿ]/g) || []).length / l.length > 0.7);
-    let ws = lines.slice(0, 3).join(' ').split(' ').filter(Boolean);
-    // Drop the brand's misread word and stray lowercase scraps among capital letters
-    const caps = ws.filter((w) => w === w.toUpperCase()).length > ws.length / 2;
-    ws = ws.filter((w) => w !== brandTok && !(caps && w.length <= 4 && w === w.toLowerCase()));
-    if (brand) ws = brand.split(' ').concat(ws.filter((w) => !brand.toLowerCase().split(' ').includes(w.toLowerCase())));
-    let name = ws.filter((w, i, a) => a.findIndex((x) => x.toLowerCase() === w.toLowerCase()) === i).slice(0, 7).join(' ');
-    // Make ALL CAPS words read normally, but leave the brand as written
-    name = name.split(' ').map((w) => (w.length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w) && !(brand && brand.includes(w)) ? w[0] + w.slice(1).toLowerCase() : w)).join(' ');
-    return { name, key: guessKey(flat) || guessKey(name), size, sure: false };
+    // Small makers print "Name Distillery" on the label
+    // (small print often misreads "Distillery", so match it loosely)
+    const isMaker = (w) => /^(distill|distilling|winery|brewing|brewery|spirits)/i.test(w) || (/^di/i.test(w) && w.length >= 5 && editDist(w.toLowerCase(), 'distillery') <= 5);
+    if (!brand) {
+      for (const l of lines) {
+        const ws = l.text.split(/\s+/), k = ws.findIndex((w, j) => j >= 1 && isMaker(w));
+        if (k >= 1) { brand = ws.slice(Math.max(0, k - 3), k).filter((w) => /^[A-Za-z'.]{2,}$/.test(w)).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' '); if (brand) break; }
+      }
+    }
+    const brandWords = brand ? brand.toLowerCase().split(' ') : [];
+    const isBrandish = (w) => brandWords.some((b) => b === w || (w.length >= 4 && (b.includes(w) || editDist(w, b) <= Math.floor(b.length / 4))));
+    // Keep label words that are not fine print, places, or the brand again
+    const cand = lines.filter((l) => l.text.length >= 3 && !LABEL_NOISE.test(l.text) && !l.text.split(/\s+/).some(isMaker))
+      .map((l, i) => ({ i, h: l.h, words: l.text.split(/\s+/).filter((w) => !/,$/.test(w)).map((w) => w.replace(/[^A-Za-zÀ-ÿ0-9'&-]/g, '')).filter((w) => w.length >= 3 && /[A-Za-zÀ-ÿ]{3}/.test(w) && !STATES.test(w) && !isBrandish(w.toLowerCase())) }))
+      .filter((l) => l.words.length);
+    const big = cand.slice().sort((x, y) => y.h - x.h).slice(0, 2).sort((x, y) => x.i - y.i);
+    let ws = brand ? brand.split(' ') : [];
+    big.forEach((l) => ws.push(...l.words));
+    // Add the kind of drink if the label shows it and it isn't in the name yet
+    const type = TYPE_WORDS.find((t) => t.length > 3 ? toks.some((x) => { const w = x.toLowerCase(); return w === t || (w.length >= 4 && t.startsWith(w)) || (w.length >= 5 && editDist(w, t) <= 1); }) : new RegExp(`\\b${t}\\b`).test(low));
+    if (type && !ws.some((w) => w.toLowerCase().startsWith(type.slice(0, 4)))) ws.push(type);
+    // Fix words cut short, like CASS for Cassis
+    ws = ws.map((w) => { const t = TYPE_WORDS.find((t) => t.length > 4 && w.length >= 4 && t.startsWith(w.toLowerCase())); return t || w; });
+    let name = ws.filter((w, i, a) => a.findIndex((x) => x.toLowerCase() === w.toLowerCase()) === i).slice(0, 6).join(' ');
+    name = name.split(' ').map((w) => (brand && brand.split(' ').includes(w) ? w : w[0].toUpperCase() + w.slice(1).toLowerCase())).join(' ');
+    return { name, key: guessKey(name) || guessKey(flat), size, sure: false };
   }
-  async function scanLabel(file) {
-    const msg = $('#scanMsg');
+  // Labels sit on colored, shiny bottles, so read a gray copy and a high-contrast copy.
+  function labelCanvas(img, mode) {
+    const c = document.createElement('canvas');
+    const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+    const W = c.width = Math.round(img.naturalWidth * k), H = c.height = Math.round(img.naturalHeight * k);
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0, W, H);
+    const id = x.getImageData(0, 0, W, H), a = id.data, g = new Float32Array(W * H);
+    for (let i = 0; i < g.length; i++) g[i] = 0.299 * a[i * 4] + 0.587 * a[i * 4 + 1] + 0.114 * a[i * 4 + 2];
+    if (mode === 'contrast') {
+      const I = new Float64Array((W + 1) * (H + 1));
+      for (let y = 0; y < H; y++) { let rs = 0; for (let j = 0; j < W; j++) { rs += g[y * W + j]; I[(y + 1) * (W + 1) + j + 1] = I[y * (W + 1) + j + 1] + rs; } }
+      const r = Math.round(W / 16), out = new Float32Array(g.length);
+      for (let y = 0; y < H; y++) for (let j = 0; j < W; j++) {
+        const x0 = Math.max(0, j - r), x1 = Math.min(W, j + r), y0 = Math.max(0, y - r), y1 = Math.min(H, y + r);
+        const m = (I[y1 * (W + 1) + x1] - I[y0 * (W + 1) + x1] - I[y1 * (W + 1) + x0] + I[y0 * (W + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+        out[y * W + j] = g[y * W + j] < m - 12 ? 0 : 255;
+      }
+      g.set(out);
+    }
+    for (let i = 0; i < g.length; i++) { a[i * 4] = a[i * 4 + 1] = a[i * 4 + 2] = g[i]; }
+    x.putImageData(id, 0, 0);
+    return c;
+  }
+  async function readLabel(file, onMsg) {
+    const T = await loadOcr();
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+    const abs = (p) => new URL(p, location.href).href;
+    let pass = 0;
+    const w = await T.createWorker('eng', 1, { workerPath: abs('ocr/worker.min.js'), corePath: abs('ocr/'), langPath: abs('ocr/'),
+      logger: (m) => { if (m.status === 'recognizing text') onMsg(Math.round((pass + m.progress) * 50)); } });
+    const lines = [], seen = new Set();
+    try {
+      for (const mode of ['gray', 'contrast']) {
+        const r = await w.recognize(labelCanvas(img, mode));
+        for (const l of r.data.lines || []) {
+          const good = l.words.filter((x) => x.confidence >= 60 && /[A-Za-z0-9]/.test(x.text));
+          const t = good.map((x) => x.text).join(' ').trim();
+          if (!t || seen.has(t.toLowerCase())) continue;
+          seen.add(t.toLowerCase());
+          lines.push({ text: t, h: Math.max(...good.map((x) => x.bbox.y1 - x.bbox.y0)) });
+        }
+        pass++;
+      }
+    } finally { w.terminate(); URL.revokeObjectURL(img.src); }
+    return lines;
+  }
+  async function scanLabel(file, prefill) {
+    const msg = $('#scanMsg') || { set textContent(t) { toast(t); } };
     msg.textContent = 'Reading the label… The first time takes a little longer.';
     try {
-      const img = await shrinkImage(file, 1600);
-      const text = await readImageText(img, (n) => { msg.textContent = `Reading the label… ${n}%`; }, true);
-      const p = parseLabel(text);
-      if (!p.name) { msg.textContent = 'Could not read the label. Try again in good light with the label filling the picture, or tap Add by name.'; return; }
-      const have = scanMode === 'bar' && state.bottles.find((b) => b.name.toLowerCase() === p.name.toLowerCase());
+      const lines = await readLabel(file, (n) => { msg.textContent = `Reading the label… ${n}%`; });
+      const p = parseLabel(lines);
+      if (!p.name) { msg.textContent = 'Could not read the label. Try again in good light with the label filling the picture, or type the name.'; return; }
+      const have = !prefill && scanMode === 'bar' && state.bottles.find((b) => b.name.toLowerCase() === p.name.toLowerCase());
       if (have && confirm(`${have.name} is already in your bar. Add another bottle?`)) {
         state.bottles.push(Object.assign({}, have, { id: uid(), level: 'full', added: new Date().toISOString().slice(0, 10) }));
         save(); closeSheet(); render(); toast('Added another bottle'); return;
       }
-      if (scanMode === 'wine') editWine(null, { name: p.name, type: guessWineType(text) });
-      else editBottle(null, { name: p.name, key: p.key, size: p.size });
+      const base = Object.assign({}, prefill || {});
+      if (scanMode === 'wine') editWine(null, Object.assign(base, { name: p.name, type: guessWineType(lines.map((l) => l.text).join(' ')) }));
+      else editBottle(null, Object.assign(base, { name: p.name, key: p.key, size: p.size || base.size || '' }));
       toast(p.sure ? 'Found it. Check and save.' : 'Check the name and fix anything it misread');
-    } catch (e) { msg.textContent = 'The label reader could not load. Check your connection, or tap Add by name.'; }
+    } catch (e) { msg.textContent = 'The label reader could not load. Check your connection, or type the name.'; }
   }
 
   // Backup plan: read the barcode from a photo taken with the regular camera app.
@@ -1263,7 +1332,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '16';
+  const APP_VERSION = '17';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
