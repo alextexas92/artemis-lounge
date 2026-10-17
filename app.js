@@ -465,7 +465,7 @@
       <p class="intro">${catName ? `Your ${esc(catName.toLowerCase())}.` : 'Everything in your bar. Tap a category above to narrow it down.'} Set each bottle’s level as you use it. <b>¼</b> adds it to Shop. <b>Out</b> stops recipes counting it.</p>
       <p class="hint">Using a Bluetooth barcode scanner? Tap “Scan a bottle”, then scan. The number fills in by itself.</p>
       ${untyped ? `<p class="hint">${untyped} item${untyped > 1 ? 's need' : ' needs'} a type before recipes can count ${untyped > 1 ? 'them' : 'it'}. Tap Edit.</p>` : ''}
-      ${state.bottles.length ? (shown.length ? '' : `<div class="empty">Nothing here yet. Tap <b>Add ${esc(catName.toLowerCase())}</b> or scan one.</div>`) : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>More &gt; Restore</b>.</div>`}
+      ${state.bottles.length ? (shown.length ? '' : `<div class="empty">Nothing here yet. Tap <b>Add ${esc(catName.toLowerCase())}</b> or scan one.</div>`) : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>Settings &gt; Restore from file</b>.</div>`}
       ${CATS.filter(([k]) => groups[k]).map(([k, t]) => `${cur === 'all' ? `<h3>${esc(t)} <span class="count">${groups[k].length}</span></h3>` : ''}<div class="list">${groups[k].sort(byTypeThenName).map(bottleRow).join('')}</div>`).join('')}`;
     $('#scanBtn', v).onclick = () => openScanner('bar');
     $('#addBtn', v).onclick = () => editBottle(null, cur !== 'all' ? { cat: cur } : null);
