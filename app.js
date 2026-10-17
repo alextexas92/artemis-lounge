@@ -1138,7 +1138,9 @@
     v.querySelectorAll('[data-note]').forEach((t) => t.addEventListener('change', () => { state.menu.notes[t.dataset.note] = t.value.trim(); save(); }));
     const sb = $('#mSoft', v);
     const keepSoft = () => { state.menu.soft = sb.value.split('\n').map((x) => x.trim()).filter(Boolean); save(); };
-    sb.addEventListener('change', () => { const had = soft.length; keepSoft(); if (!had !== !state.menu.soft.length) render(); });
+    // Save as she types. Re-drawing the page here would swallow a tap on Print.
+    sb.addEventListener('input', keepSoft);
+    sb.addEventListener('change', () => { keepSoft(); if (!$('#printMenu', v) && state.menu.soft.length) render(); });
     v.querySelectorAll('[data-soft]').forEach((c) => c.addEventListener('click', () => {
       sb.value = [...sb.value.split('\n').map((x) => x.trim()).filter(Boolean), c.dataset.soft].join('\n'); keepSoft(); render();
     }));
@@ -1668,7 +1670,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '33';
+  const APP_VERSION = '34';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
