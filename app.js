@@ -1112,6 +1112,7 @@
           <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`;
       }, (h) => `<h3>${esc(h)}</h3>`)}</div>
       <div class="btn-row"><button class="btn primary" id="shareMenu">Guest link &amp; QR</button><button class="btn" id="printMenu">Print menu</button></div>
+      <button class="btn block" id="packBtn">🧳 Packing list for making these away from home</button>
       ${items.some((r) => photoURL[r.id]) ? `<label class="check"><input type="checkbox" id="printPhotos" ${state.menu.printPhotos ? 'checked' : ''}><span class="grow">Show drink photos on the printed menu</span></label>` : ''}
       <button class="btn small danger" id="clearMenu">Clear menu</button>` : '<div class="empty">No drinks on the menu yet.</div>'}`;
     $('#mTitle', v).addEventListener('change', (e) => { state.menu.title = e.target.value.trim() || 'Artemis Lounge'; save(); });
@@ -1122,9 +1123,114 @@
     if (items.length) {
       $('#shareMenu', v).onclick = shareMenu;
       $('#printMenu', v).onclick = printMenu;
+      $('#packBtn', v).onclick = openPacking;
       const pp = $('#printPhotos', v); if (pp) pp.onchange = () => { state.menu.printPhotos = pp.checked; save(); };
       $('#clearMenu', v).onclick = () => { if (confirm('Clear the menu?')) { state.menu.ids = []; save(); render(); } };
     }
+  }
+
+  // ── Packing list ─────────────────────────────────────────────────────
+  // Everything to bring to make tonight's menu somewhere else: bottles with
+  // how much is needed, fresh items, garnishes, bar tools and glasses.
+  const ML_PER_OZ = 29.57;
+  function ozOf(amt) {
+    const t = (amt || '').trim();
+    let m = t.match(/^([\d.]*[½¼¾⅓⅔⅛]?)\s*(oz|cups?)\b/i);
+    if (m) { const a = num(m[1]); return isNaN(a) ? 0 : a * (/cup/i.test(m[2]) ? 8 : 1); }
+    m = t.match(/(\d+)\s*ml/i);
+    return m ? parseInt(m[1], 10) / ML_PER_OZ : 0;
+  }
+  function bottleSize(b) {
+    const m = (b && b.size || '').match(/([\d.]+)\s*(ml|l|oz)\b/i);
+    if (!m) return 25.4;
+    const v = parseFloat(m[1]);
+    return /^l$/i.test(m[2]) ? v * 1000 / ML_PER_OZ : /ml/i.test(m[2]) ? v / ML_PER_OZ : v;
+  }
+  const LEVEL_SHARE = { full: 1, three: 0.75, half: 0.5, low: 0.25, out: 0 };
+  function packingList(n) {
+    const recipes = menuRecipes();
+    const need = new Map(); // key or name -> { label, oz, other, opt, key }
+    recipes.forEach((r) => r.ingredients.forEach((i) => {
+      const id = i.keys[0] || 'n:' + i.name.toLowerCase();
+      const e = need.get(id) || { label: i.keys[0] ? label(i.keys[0]) : i.name, key: i.keys[0], oz: 0, other: new Set(), opt: true, drinks: new Set() };
+      const oz = ozOf(i.amt) * n;
+      if (oz) e.oz += oz; else if (i.amt) e.other.add(/^top$/i.test(i.amt) ? 'to top each drink' : `${scaleAmt(i.amt, n)} for ${r.name}`);
+      if (!i.optional) e.opt = false;
+      e.drinks.add(r.name);
+      need.set(id, e);
+    }));
+    const bottles = [], fresh = [];
+    for (const e of need.values()) {
+      const mine = e.key ? state.bottles.filter((b) => b.key === e.key && b.level !== 'out') : [];
+      const amt = [e.oz ? `about ${fmt(Math.ceil(e.oz * 4) / 4)} oz` : '', ...e.other].filter(Boolean).join(', ');
+      let note = '';
+      if (mine.length) {
+        const b = mine[0];
+        const inBottle = bottleSize(b) * (LEVEL_SHARE[b.level] ?? 1);
+        const left = inBottle + bottleSize(b) * ((b.qty || 1) - 1);
+        note = `Bring ${b.name}`;
+        if (e.oz && e.oz > inBottle && (b.qty || 1) > 1) note += ', plus a spare bottle';
+        if (e.oz && e.oz > left) note += '. You may run short, so buy more';
+      } else if (e.key && !PANTRY.has(e.key)) note = 'Not in your bar yet';
+      const row = { id: 'i:' + (e.key || e.label), label: e.label, amt, note, opt: e.opt, missing: !mine.length && e.key && !PANTRY.has(e.key) };
+      const g = e.key ? groupOf(e.key) : 'Other';
+      (['Mixers', 'Juices', 'Fresh & Pantry'].includes(g) || (!e.key && !mine.length) ? fresh : bottles).push(row);
+    }
+    const garnish = [...new Set(recipes.flatMap((r) => (r.garnish || '').split(/,| or /).map((x) => x.trim()).filter(Boolean)).map((x) => x[0].toUpperCase() + x.slice(1)))].map((x) => ({ id: 'g:' + x, label: x }));
+    const methods = recipes.map((r) => (r.method || '').toLowerCase()).join(' ');
+    const anyGarnish = recipes.map((r) => (r.garnish || '').toLowerCase()).join(' ');
+    const tools = [
+      ['Jigger for measuring', true],
+      ['Cocktail shaker and strainer', /shake/.test(methods)],
+      ['Mixing glass, bar spoon and strainer', /stir/.test(methods)],
+      ['Muddler', /muddle/.test(methods) || recipes.some((r) => /muddle/i.test(r.steps || ''))],
+      ['Bar spoon for stirring tall drinks', /build/.test(methods)],
+      ['Small knife and cutting board', /lime|lemon|orange|wheel|wedge|slice|peel|twist|fruit/.test(anyGarnish)],
+      ['Peeler for twists and peels', /peel|twist/.test(anyGarnish)],
+      ['Small plate for salt or sugar rims', /rim/.test(anyGarnish)],
+      ['Cocktail picks', /olive|cherr|pick/.test(anyGarnish)],
+      ['Pitcher for batching', n >= 4],
+      ['Cooler with plenty of ice, plus a scoop', true],
+      ['Bottle opener and corkscrew', recipes.some((r) => r.ingredients.some((i) => /wine|champagne|prosecco|beer|soda|tonic|ginger/i.test(i.name)))],
+      ['Bar towel', true],
+    ].filter(([, on]) => on).map(([t]) => ({ id: 't:' + t, label: t }));
+    const glassCount = {};
+    recipes.forEach((r) => { if (r.glass) glassCount[r.glass] = (glassCount[r.glass] || 0) + n; });
+    const glasses = Object.entries(glassCount).map(([g, c]) => ({ id: 'w:' + g, label: g, amt: `${c}` }));
+    return { bottles, fresh, garnish, tools, glasses };
+  }
+  function openPacking() {
+    state.pack = state.pack || { n: 4, done: [] };
+    const P = state.pack;
+    const L = packingList(P.n);
+    const done = new Set(P.done);
+    const row = (x) => `<label class="check pack"><input type="checkbox" data-pack="${esc(x.id)}" ${done.has(x.id) ? 'checked' : ''}><span class="grow">${esc(x.label)}${x.opt ? ' <span class="pill">optional</span>' : ''}${x.amt ? `<span class="sub-note">${esc(x.amt)}</span>` : ''}${x.note ? `<span class="sub-note ${x.missing ? 'warn' : ''}">${esc(x.note)}</span>` : ''}</span></label>`;
+    const sec = (t, xs) => (xs.length ? `<h3>${t}</h3>${xs.map(row).join('')}` : '');
+    openSheet(`<h2>Packing list</h2>
+      <p class="hint">For the ${menuRecipes().length} drinks on tonight’s menu. Tick things off as you pack.</p>
+      <div class="field">About how many of each drink?<div class="qty big" role="group" aria-label="Drinks of each"><button type="button" id="pkM">−</button><input id="pkN" type="number" inputmode="numeric" min="1" value="${P.n}"><button type="button" id="pkP">+</button></div></div>
+      ${sec('Bottles', L.bottles)}${sec('Juices, mixers and fresh', L.fresh)}${sec('Garnishes', L.garnish)}${sec('Bar tools', L.tools)}${sec('Glasses', L.glasses)}
+      <div class="btn-row"><button class="btn primary" id="pkShare">Send the list</button><button class="btn" id="pkClear">Untick all</button></div>
+      ${L.bottles.some((x) => x.missing) || L.fresh.some((x) => x.missing) ? '<button class="btn block" id="pkShop">Add what you’re missing to Shop</button>' : ''}`);
+    const body = $('#sheetBody');
+    const setN = (v) => { P.n = Math.max(1, Math.min(99, v || 1)); save(); openPacking(); };
+    $('#pkM', body).onclick = () => setN(P.n - 1);
+    $('#pkP', body).onclick = () => setN(P.n + 1);
+    $('#pkN', body).addEventListener('change', (e) => setN(parseInt(e.target.value, 10)));
+    body.querySelectorAll('[data-pack]').forEach((c) => c.addEventListener('change', () => {
+      const s2 = new Set(P.done); c.checked ? s2.add(c.dataset.pack) : s2.delete(c.dataset.pack); P.done = [...s2]; save();
+    }));
+    $('#pkClear', body).onclick = () => { P.done = []; save(); openPacking(); };
+    $('#pkShare', body).onclick = () => {
+      const t = (title, xs) => (xs.length ? `\n${title}\n` + xs.map((x) => `☐ ${x.label}${x.amt ? ` (${x.amt})` : ''}${x.note ? `. ${x.note}` : ''}`).join('\n') + '\n' : '');
+      shareText('Packing list', `${state.menu.title} packing list, ${P.n} of each drink\n` + t('BOTTLES', L.bottles) + t('JUICES, MIXERS AND FRESH', L.fresh) + t('GARNISHES', L.garnish) + t('BAR TOOLS', L.tools) + t('GLASSES', L.glasses));
+    };
+    const ps = $('#pkShop', body);
+    if (ps) ps.onclick = () => {
+      const miss = menuRecipes().flatMap((r) => r.ingredients).filter((i) => i.keys[0] && !i.optional && !PANTRY.has(i.keys[0]) && !state.bottles.some((b) => b.key === i.keys[0] && b.level !== 'out'));
+      [...new Set(miss.map((i) => i.keys[0]))].forEach((k) => addShop(label(k), k));
+      save(); toast('Added to Shop');
+    };
   }
 
   function pickDrinks() {
@@ -1443,7 +1549,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '25';
+  const APP_VERSION = '26';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1624,7 +1730,7 @@
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? Go to <b>More</b> &gt; <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
-    ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
+    ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. Making drinks somewhere else? Tap <b>Packing list</b> for the bottles, garnishes, tools and glasses to bring. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
     ['🛒', 'Shop', 'The <b>Shop</b> tab lists bottles at ¼ or Out, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],
     ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>More</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],
   ];
