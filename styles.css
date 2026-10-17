@@ -206,3 +206,8 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 .chip .ccount { font-size: .75rem; opacity: .7; margin-left: 2px; }
 
 .top-btns { display: flex; gap: 8px; flex: none; }
+.shot-box { margin: 4px 0 14px; }
+.shot-prev { display: block; max-width: 100%; max-height: 220px; margin: 10px auto 0; border-radius: 10px; border: 1px solid var(--gold-dim); }
+.shot-wrap { display: block; width: 100%; padding: 0; border: 1px solid var(--gold-dim); border-radius: 12px; overflow: hidden; background: none; cursor: zoom-in; max-height: 260px; }
+.shot-wrap.open { max-height: none; cursor: zoom-out; }
+.shot-full { display: block; width: 100%; }

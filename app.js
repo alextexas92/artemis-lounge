@@ -308,6 +308,7 @@
         ${r.garnish ? `<h3>Garnish</h3><p class="steps">${esc(r.garnish)}</p>` : ''}
         ${r.steps ? `<h3>How to make it</h3><p class="steps">${esc(r.steps)}</p>` : ''}
         ${r.source ? `<p class="hint">Recipe from ${esc(r.source)}</p>` : ''}
+        ${photoURL['shot:' + r.id] ? `<h3>Screenshot</h3><button class="shot-wrap" id="shotView" aria-label="Show the whole screenshot"><img class="shot-full" src="${photoURL['shot:' + r.id]}" alt="Screenshot of ${esc(r.name)}"></button>` : ''}
         <label class="field">Your notes, like who loved it or how you tweaked it<textarea id="rNote" placeholder="Maria loved this. Use less syrup next time.">${esc(state.rnotes[r.id] || '')}</textarea></label>
         <div class="btn-row">
           <button class="btn ${onMenu ? '' : 'primary'}" id="menuToggle">${onMenu ? 'Remove from menu' : 'Add to tonight’s menu'}</button>
@@ -319,7 +320,7 @@
           ${c.missing.some((m) => m.keys.length) ? `<button class="btn small" id="addMissing">Add missing to Shop</button>` : ''}
           <button class="btn small" id="photoBtn">${photoURL[r.id] ? 'Change photo' : 'Add photo'}</button>
           ${photoURL[r.id] ? '<button class="btn small" id="photoDel">Remove photo</button>' : ''}
-          ${r.custom ? `<button class="btn small danger" id="delRecipe">Delete recipe</button>` : ''}
+          ${r.custom ? `<button class="btn small" id="editRecipe">Edit recipe</button><button class="btn small danger" id="delRecipe">Delete recipe</button>` : ''}
         </div>
         <input type="file" id="photoIn" accept="image/*" hidden>
         ${used.length ? `<h3>Bottles used. Running low?</h3>${used.map(bottleRow).join('')}` : ''}
@@ -331,7 +332,7 @@
       if (ids.includes(r.id)) ids.splice(ids.indexOf(r.id), 1); else ids.push(r.id);
       save(); toast(ids.includes(r.id) ? 'Added to menu' : 'Removed from menu'); openRecipe(id); render();
     };
-    $('#share', body).onclick = () => shareText(r.name, recipeText(r, n));
+    $('#share', body).onclick = () => shareRecipe(r, n);
     $('#favBtn', body).onclick = () => {
       const f = state.favs;
       if (f.includes(r.id)) f.splice(f.indexOf(r.id), 1); else f.push(r.id);
@@ -358,8 +359,12 @@
     if (aw) aw.onclick = async () => { await keepAwake(!wakeLock); openRecipe(id); };
     const am = $('#addMissing', body);
     if (am) am.onclick = () => { c.missing.forEach((m) => m.keys.length && addShop(label(m.keys[0]), m.keys[0])); save(); toast('Added to Shop'); };
+    const er = $('#editRecipe', body);
+    if (er) er.onclick = () => editRecipe(r);
+    const sv = $('#shotView', body);
+    if (sv) sv.onclick = () => sv.classList.toggle('open');
     const dr = $('#delRecipe', body);
-    if (dr) dr.onclick = () => { if (confirm(`Delete ${r.name}?`)) { state.custom = state.custom.filter((x) => x.id !== r.id); state.menu.ids = state.menu.ids.filter((x) => x !== r.id); state.favs = state.favs.filter((x) => x !== r.id); delete state.rnotes[r.id]; if (photoURL[r.id]) setPhoto(r.id, null); save(); closeSheet(); render(); } };
+    if (dr) dr.onclick = () => { if (confirm(`Delete ${r.name}?`)) { state.custom = state.custom.filter((x) => x.id !== r.id); state.menu.ids = state.menu.ids.filter((x) => x !== r.id); state.favs = state.favs.filter((x) => x !== r.id); delete state.rnotes[r.id]; if (photoURL[r.id]) setPhoto(r.id, null); if (photoURL['shot:' + r.id]) setPhoto('shot:' + r.id, null); save(); closeSheet(); render(); } };
     wireBottleRows(body, () => { openRecipe(id); render(); });
   }
 
@@ -999,7 +1004,8 @@
       return [c.course, c.dish, [c.wine, r ? r.name : '', c.neat].filter(Boolean)];
     }) };
   }
-  async function encodeMenu(data) {
+  // Squeeze data into a link-safe string. Used by guest menus and shared recipes.
+  async function packHash(data) {
     const json = JSON.stringify(data);
     let bytes = new TextEncoder().encode(json), prefix = 'j';
     if ('CompressionStream' in window) {
@@ -1009,8 +1015,30 @@
       } catch (e) { bytes = new TextEncoder().encode(json); prefix = 'j'; }
     }
     let bin = ''; bytes.forEach((b) => { bin += String.fromCharCode(b); });
-    return new URL('menu.html#' + prefix + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), location.href).href;
+    return prefix + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
+  async function unpackHash(prefix, str) {
+    const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+    let bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    if (prefix === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+  async function encodeMenu(data) {
+    return new URL('menu.html#' + await packHash(data), location.href).href;
+  }
+  // A link that adds a recipe to someone else's app when they tap it.
+  async function recipeLink(r) {
+    const base = new URL('index.html', location.href).href;
+    if (!r.custom) return base + '#r=' + encodeURIComponent(r.id);
+    const d = { n: r.name, b: r.base, g: r.glass, m: r.method, ga: r.garnish, s: r.steps, i: r.ingredients.map((x) => [x.amt, x.name, x.optional ? 1 : 0]) };
+    return base + '#recipe=' + await packHash(d);
+  }
+  async function shareRecipe(r, n) {
+    const url = await recipeLink(r);
+    shareText(r.name, `${recipeText(r, n)}\n\nTap to add it to your Artemis Lounge app:\n${url}`);
+  }
+
   async function shareDinner() {
     const url = await encodeMenu(dinnerData());
     openSheet(`<h2>Dinner menu</h2><p class="hint">Guests scan this with their phone camera to see each course and what’s poured with it.</p>
@@ -1112,7 +1140,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '12';
+  const APP_VERSION = '13';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1147,7 +1175,7 @@
       <p class="hint" style="margin-top:28px">Artemis Lounge is free to use. Each person’s bar stays on their own phone and is never uploaded.</p>`;
     $('#barIn', v).addEventListener('change', (e) => { state.barName = e.target.value.trim() || 'Artemis Lounge'; save(); render(); });
     $('#zipMore', v).addEventListener('change', (e) => { const z = e.target.value.replace(/\D/g, '').slice(0, 5); state.zip = z; save(); toast(z.length === 5 ? 'Zip code saved' : 'Zip code cleared'); });
-    $('#newRecipe', v).onclick = editRecipe;
+    $('#newRecipe', v).onclick = () => editRecipe();
     $('#guideBtn', v).onclick = openGuide;
     $('#updBtn', v).onclick = refreshApp;
     $('#backup', v).onclick = backup;
@@ -1183,26 +1211,99 @@
     fr.readAsText(file);
   }
 
-  function editRecipe() {
-    openSheet(`<h2>Add a recipe</h2>
-      <label class="field">Name<input id="rName"></label>
-      <label class="field">Main spirit<input id="rBase" placeholder="Gin"></label>
-      <label class="field">Ingredients, one per line with the amount first<textarea id="rIngs" placeholder="2 oz Gin&#10;¾ oz Lime Juice&#10;¾ oz Simple Syrup"></textarea></label>
-      <label class="field">Glass<input id="rGlass" placeholder="Coupe"></label>
-      <label class="field">Method<select id="rMethod"><option>Shake</option><option>Stir</option><option>Build</option><option>Muddle</option></select></label>
-      <label class="field">Garnish<input id="rGarnish"></label>
-      <label class="field">How to make it<textarea id="rSteps"></textarea></label>
+  // ── Reading a recipe from a screenshot ──────────────────────────────
+  // Text reading runs on the phone with Tesseract (files in ocr/), so the
+  // screenshot is never uploaded. It loads only the first time it's used.
+  let ocrLib = null;
+  function loadOcr() {
+    if (ocrLib) return ocrLib;
+    ocrLib = new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'ocr/tesseract.min.js';
+      sc.onload = () => res(window.Tesseract);
+      sc.onerror = () => { ocrLib = null; rej(new Error('ocr')); };
+      document.head.appendChild(sc);
+    });
+    return ocrLib;
+  }
+  async function readScreenshot(blob, onPct) {
+    const T = await loadOcr();
+    const w = await T.createWorker('eng', 1, {
+      workerPath: new URL('ocr/worker.min.js', location.href).href, corePath: new URL('ocr/', location.href).href, langPath: new URL('ocr/', location.href).href,
+      logger: (m) => { if (m.status === 'recognizing text') onPct(Math.round(m.progress * 100)); },
+    });
+    try { return (await w.recognize(blob)).data.text; } finally { w.terminate(); }
+  }
+  const ING_LINE = /^([\d½¼¾⅓⅔⅛]|(one|two|three|half|a|an)\s+(dash|splash|pinch|barspoon|ounce|oz|cup|teaspoon|tablespoon|slice|sprig|wedge|few|handful)|(dash|dashes|splash|pinch|top|barspoon)\b)|\b(\d+(\.\d+)?\s?(oz|ml|cl)|ounces?|tsp|tbsp|teaspoons?|tablespoons?|cups?|parts?|dashes)\b/i;
+  const HEADING = /^(ingredients?|method|instructions?|directions?|steps?|how to make( it)?|garnish|recipe|you('ll)? need|preparation)\s*:?$/i;
+  function parseRecipeText(text) {
+    const lines = text.split('\n').map((l) => l.replace(/^[\s•●▪◦·*\-–—«»©®~>]+/, '').replace(/(\d)\s?0z\b/g, '$1 oz').replace(/\s+/g, ' ').trim()).filter((l) => l.length > 1);
+    const out = { name: '', ings: [], steps: [], garnish: '' };
+    for (const l of lines) {
+      if (HEADING.test(l)) continue;
+      const g = l.match(/^garnish(?: with)?\s*:?\s*(.+)$/i);
+      if (g && !out.garnish) { out.garnish = g[1]; continue; }
+      if (ING_LINE.test(l) && l.length < 70) { out.ings.push(l); continue; }
+      // Titles often wrap onto a second line, so join short lines at the top
+      if (!out.ings.length && !out.steps.length && (out.name + ' ' + l).length < 48 && !/[.!?:]$/.test(l)) { out.name = (out.name + ' ' + l).trim(); continue; }
+      out.steps.push(l);
+    }
+    return { name: out.name, ings: out.ings.join('\n'), steps: out.steps.join(' '), garnish: out.garnish };
+  }
+
+  function editRecipe(r) {
+    r = r && r.custom ? r : null;
+    const shotKey = (id) => 'shot:' + id;
+    const oldShot = r && photoURL[shotKey(r.id)];
+    let shot = null;
+    const ingText = r ? r.ingredients.map((i) => [i.amt, i.name].filter(Boolean).join(' ')).join('\n') : '';
+    openSheet(`<h2>${r ? 'Edit recipe' : 'Add a recipe'}</h2>
+      <div class="shot-box">
+        <button class="btn block" id="shotBtn">📷 ${oldShot ? 'Change screenshot' : 'Add from a screenshot'}</button>
+        <input type="file" id="shotIn" accept="image/*" hidden>
+        <img id="shotPrev" class="shot-prev" alt="Recipe screenshot" ${oldShot ? `src="${oldShot}"` : 'hidden'}>
+        <p class="hint" id="shotMsg">${oldShot ? 'Your screenshot is saved with this recipe.' : 'Found a drink online? Pick a screenshot of it. The app reads the words and fills in what it can, and keeps the screenshot with the recipe. Check the boxes before you save.'}</p>
+      </div>
+      <label class="field">Name<input id="rName" value="${esc(r ? r.name : '')}"></label>
+      <label class="field">Main spirit<input id="rBase" placeholder="Gin" value="${esc(r ? r.base : '')}"></label>
+      <label class="field">Ingredients, one per line with the amount first<textarea id="rIngs" rows="5" placeholder="2 oz Gin&#10;¾ oz Lime Juice&#10;¾ oz Simple Syrup">${esc(ingText)}</textarea></label>
+      <label class="field">Glass<input id="rGlass" placeholder="Coupe" value="${esc(r ? r.glass : '')}"></label>
+      <label class="field">Method<select id="rMethod">${['Shake', 'Stir', 'Build', 'Muddle'].map((m) => `<option ${r && r.method === m ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
+      <label class="field">Garnish<input id="rGarnish" value="${esc(r ? r.garnish : '')}"></label>
+      <label class="field">How to make it<textarea id="rSteps" rows="4">${esc(r ? r.steps : '')}</textarea></label>
       <div class="btn-row"><button class="btn primary" id="rSave">Save recipe</button></div>`);
-    $('#rSave').onclick = () => {
+    const msg = $('#shotMsg');
+    $('#shotBtn').onclick = () => $('#shotIn').click();
+    $('#shotIn').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      try { shot = await shrinkImage(f, 1800); } catch (err) { toast('Could not open that picture'); return; }
+      const prev = $('#shotPrev'); prev.src = URL.createObjectURL(shot); prev.hidden = false;
+      msg.textContent = 'Reading the screenshot… The first time takes a little longer.';
+      try {
+        const p = parseRecipeText(await readScreenshot(shot, (n) => { msg.textContent = `Reading the screenshot… ${n}%`; }));
+        const fill = (id, v) => { const el = $('#' + id); if (v && !el.value.trim()) el.value = v; };
+        fill('rName', p.name); fill('rIngs', p.ings); fill('rSteps', p.steps); fill('rGarnish', p.garnish);
+        const m = $('#rMethod'), all = p.steps.toLowerCase();
+        if (!r && /\bstir/.test(all)) m.value = 'Stir'; else if (!r && /\bmuddle/.test(all)) m.value = 'Muddle'; else if (!r && /\bshake/.test(all)) m.value = 'Shake'; else if (!r && /\b(build|top with|pour)/.test(all)) m.value = 'Build';
+        msg.textContent = p.ings || p.steps ? 'Done. Check the boxes below and fix anything it misread. The screenshot will be saved with the recipe.' : 'I could not find a recipe in the words. The screenshot will still be saved, so type in the parts you need.';
+      } catch (err) {
+        msg.textContent = 'The text reader could not load. Check your connection and try again, or type the recipe in. The screenshot will still be saved.';
+      }
+    });
+    $('#rSave').onclick = async () => {
       const g = (id) => $('#' + id).value.trim();
-      if (!g('rName')) { toast('Give it a name'); return; }
+      if (!g('rName')) { toast('Give it a name'); $('#rName').focus(); return; }
       const ingredients = g('rIngs').split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
         const m = l.match(/^((?:[\d.\/½¼¾⅓⅔]+\s*)+(?:oz|ml|cl|dashes|dash|barspoon|tsp|tbsp|cups?)?|top|dash|splash)\s+(.*)$/i);
         const amt = m ? m[1] : '', name = m ? m[2] : l, key = guessKey(name);
         return { amt, name, keys: key ? [key] : [], optional: /optional/i.test(l) };
       });
-      state.custom.push({ id: 'my-' + uid(), custom: true, name: g('rName'), base: g('rBase'), category: '', glass: g('rGlass'), method: g('rMethod'), garnish: g('rGarnish'), difficulty: '', steps: g('rSteps'), source: '', ingredients });
-      save(); closeSheet(); render(); toast('Recipe saved');
+      const id = r ? r.id : 'my-' + uid();
+      const rec = { id, custom: true, name: g('rName'), base: g('rBase'), category: '', glass: g('rGlass'), method: g('rMethod'), garnish: g('rGarnish'), difficulty: '', steps: g('rSteps'), source: r ? r.source : '', ingredients };
+      if (r) state.custom = state.custom.map((x) => (x.id === id ? rec : x)); else state.custom.push(rec);
+      save();
+      if (shot) { try { await setPhoto(shotKey(id), shot); } catch (err) { toast('The screenshot could not be saved on this phone'); } }
+      closeSheet(); render(); toast('Recipe saved');
     };
   }
 
@@ -1213,7 +1314,7 @@
     ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
     ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
-    ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
+    ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? Go to <b>More</b> &gt; <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
@@ -1251,15 +1352,26 @@
   // A "#load=..." link carries a whole bar (made from a backup), so a person can
   // move their bar to a phone by tapping one link instead of transferring a file.
   async function loadFromLink() {
+    const rr = location.hash.match(/^#r=(.+)$/);
+    if (rr) { history.replaceState(null, '', location.pathname); const id = decodeURIComponent(rr[1]); if (recipeById(id)) openRecipe(id); return; }
+    const rm = location.hash.match(/^#recipe=([jz])(.+)$/);
+    if (rm) {
+      history.replaceState(null, '', location.pathname);
+      try {
+        const d = await unpackHash(rm[1], rm[2]);
+        if (!d.n) throw new Error('no name');
+        const same = state.custom.find((x) => x.name.toLowerCase() === String(d.n).toLowerCase());
+        if (same) { openRecipe(same.id); toast('You already have this recipe'); return; }
+        const rec = { id: 'my-' + uid(), custom: true, name: String(d.n), base: d.b || '', category: '', glass: d.g || '', method: d.m || '', garnish: d.ga || '', difficulty: '', steps: d.s || '', source: 'a friend', ingredients: (d.i || []).map(([amt, name, opt]) => { const key = guessKey(name); return { amt: amt || '', name, keys: key ? [key] : [], optional: !!opt }; }) };
+        state.custom.push(rec); save(); render(); openRecipe(rec.id); toast('Added to your recipes');
+      } catch (e) { toast('That recipe link is incomplete'); }
+      return;
+    }
     const m = location.hash.match(/^#load=([jz])(.+)$/);
     if (!m) return;
     history.replaceState(null, '', location.pathname);
     try {
-      const b64 = m[2].replace(/-/g, '+').replace(/_/g, '/');
-      const bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
-      let bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-      if (m[1] === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
-      const d = JSON.parse(new TextDecoder().decode(bytes));
+      const d = await unpackHash(m[1], m[2]);
       if (!Array.isArray(d.bottles)) throw new Error('no bottles');
       const msg = state.bottles.length
         ? `Load ${d.bottles.length} bottles? This replaces the ${state.bottles.length} already on this phone.`
@@ -1281,6 +1393,7 @@
   $('#refreshBtn').addEventListener('click', refreshApp);
   render();
   loadPhotos().then(() => { if (Object.keys(photoURL).length) render(); });
+  const linked = /^#(load|recipe|r)=/.test(location.hash);
   loadFromLink();
-  if (!state.seenGuide && !/^#load=/.test(location.hash)) setTimeout(openGuide, 400);
+  if (!state.seenGuide && !linked) setTimeout(openGuide, 400);
 })();
