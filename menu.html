@@ -68,8 +68,10 @@
   const RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
   const DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
   try {
-    // Only the host's own preview gets a way back. Guests who scan the QR never see it.
-    if (new URLSearchParams(location.search).has('preview')) {
+    // The host's preview, or the menu opened inside the installed app, gets a way back.
+    // Guests who scan the QR in their browser never see it.
+    const inApp = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+    if (inApp || new URLSearchParams(location.search).has('preview')) {
       const bk = document.getElementById('backApp'); bk.hidden = false;
       bk.onclick = () => { if (history.length > 1) history.back(); else location.href = './'; };
     }
