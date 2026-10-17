@@ -15,7 +15,7 @@
   const GROUP_ORDER = ['Spirits', 'Liqueurs & Aperitifs', 'Wine', 'Mixers', 'Juices', 'Syrups', 'Bitters & Brine', 'Fresh & Pantry', 'Other'];
 
   // ── State ────────────────────────────────────────────────────────────
-  const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [], dinner: { title: 'Dinner at Artemis Lounge', courses: [] } });
+  const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [], dinner: { title: 'Dinner at Artemis Lounge', courses: [] }, zip: '' });
   let state = load();
 
   function load() {
@@ -427,7 +427,7 @@
         ${w.notes ? `<div class="note-line">${esc(w.notes)}</div>` : ''}</div>
       <button class="btn small" data-wedit="${esc(w.id)}">Edit</button></div>
       ${w.wish
-        ? `<div class="btn-row"><button class="btn small primary" data-got="${esc(w.id)}">Got it</button><button class="btn small" data-wshop="${esc(w.id)}">+ Shop list</button></div>${w.where ? `<div class="meta">Where to buy: ${esc(w.where)}</div>` : ''}`
+        ? `<div class="btn-row"><button class="btn small primary" data-got="${esc(w.id)}">Got it</button><button class="btn small" data-wshop="${esc(w.id)}">+ Shop list</button><button class="btn small" data-buy="${esc(w.name)}">📍 Find nearby</button></div>${w.where ? `<div class="meta">Where to buy: ${esc(w.where)}</div>` : ''}`
         : `<div class="counter"><button data-wdec="${esc(w.id)}" aria-label="One less bottle">−</button><span>${w.count} bottle${w.count === 1 ? '' : 's'}</span><button data-winc="${esc(w.id)}" aria-label="One more bottle">+</button></div>`}
     </div>`;
   }
@@ -462,6 +462,7 @@
       if (w.count === 0 && confirm(`That was the last ${w.name}. Add it to your Shop list?`)) { addShop(w.name); save(); toast('Added to Shop'); }
     }));
     v.querySelectorAll('[data-got]').forEach((b) => b.addEventListener('click', () => { const w = find(b.dataset.got); w.wish = false; w.count = Math.max(1, w.count || 0); save(); render(); toast(`${w.name} is in your rack`); }));
+    v.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => openBuy(b.dataset.buy)));
     v.querySelectorAll('[data-wshop]').forEach((b) => b.addEventListener('click', () => { addShop(find(b.dataset.wshop).name); save(); toast('Added to Shop'); }));
   }
 
@@ -908,6 +909,7 @@
       c[kind] = c[kind] === val ? '' : val; save(); render();
     }));
     v.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.open)));
+    v.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => openBuy(b.dataset.buy)));
     v.querySelectorAll('[data-cmove]').forEach((b) => b.addEventListener('click', () => {
       const i = D.courses.indexOf(find(b)), j = i + +b.dataset.cmove;
       if (j < 0 || j >= D.courses.length) return;
@@ -936,6 +938,7 @@
       <p class="hint">${esc(o.st.why)}</p>
       <div class="pick-label">Wine</div><div class="pchips">${o.wines.map((w) => chip('wine', w.v, w.label, w.mine)).join('')}</div>
       <div class="pick-label">Cocktail</div><div class="pchips">${o.drinks.map(({ r, ok }) => chip('drink', r.id, r.name, false, ok)).join('')}</div>
+      ${c.wine && !o.wines.some((w) => w.mine && w.v === c.wine) ? `<button class="linkish" data-buy="${esc(c.wine)}">📍 Find ${esc(c.wine)} near you</button>` : ''}
       ${c.drink ? `<button class="linkish" data-open="${esc(c.drink)}">See the ${esc((recipeById(c.drink) || {}).name || '')} recipe</button>` : ''}
       ${o.neat.length ? `<div class="pick-label">Neat or on the rocks</div><div class="pchips">${o.neat.map((n) => chip('neat', n.v, n.v, n.mine)).join('')}</div>` : ''}
       ${o.zp ? `<div class="pick-label">Zero proof</div><button class="linkish" data-open="${esc(o.zp.id)}">${esc(o.zp.name)}</button>` : ''}
@@ -981,6 +984,37 @@
     setTimeout(() => window.print(), 300);
   }
 
+  // ── Where to buy ─────────────────────────────────────────────────────
+  // No store shares live stock without a paid account, so these are search
+  // links aimed at the person's zip code. They work anywhere in the US.
+  // Store brands are only sold at their own chain (from the old wine finder)
+  const STORE_BRANDS = [[/kirkland/i, 'Costco'], [/trader joe/i, 'Trader Joe’s'], [/whole foods|365 by/i, 'Whole Foods'], [/h-e-b|\bheb\b/i, 'H-E-B'], [/\baldi\b/i, 'Aldi'], [/\blidl\b/i, 'Lidl']];
+  function buyLinks(name, zip) {
+    const q = encodeURIComponent(name), z = encodeURIComponent(zip || '');
+    const sb = STORE_BRANDS.find(([re]) => re.test(name));
+    if (sb) return [[`${sb[1]} near me`, `${name} is a ${sb[1]} brand, so only ${sb[1]} carries it.`, `https://www.google.com/maps/search/${encodeURIComponent(sb[1])}+near+${z}`]];
+    return [
+      ['Stores near me', 'Searches stores around your zip. Big chains often show “in stock nearby.”', `https://www.google.com/search?q=${q}+near+${z}`],
+      ['Map of liquor and wine stores', 'Shops around your zip on Google Maps.', `https://www.google.com/maps/search/liquor+and+wine+store+near+${z}`],
+      ['Compare prices', 'Wine-Searcher lists shops and prices for one bottle.', `https://www.wine-searcher.com/find/${q}`],
+      ['Total Wine', 'Pick your nearest store on their site to see if it’s in stock.', `https://www.totalwine.com/search/all?text=${q}`],
+      ['Delivery', 'Instacart shows what stores near your address can deliver.', `https://www.instacart.com/store/s?k=${q}`],
+    ];
+  }
+  function openBuy(name) {
+    const draw = () => {
+      const zip = state.zip;
+      openSheet(`<h2>Find ${esc(name)}</h2>
+        <label class="field">Your zip code<input id="zipIn" inputmode="numeric" maxlength="5" value="${esc(zip)}" placeholder="78201"></label>
+        ${/^\d{5}$/.test(zip) ? `<p class="hint">These open a search for stores near ${esc(zip)}. They can’t promise the bottle is on the shelf, so call ahead for anything rare.</p>
+        <div class="buy-list">${buyLinks(name, zip).map(([t, d, u]) => `<a class="buy" href="${esc(u)}" target="_blank" rel="noopener"><b>${esc(t)}</b><span>${esc(d)}</span></a>`).join('')}</div>` : '<p class="hint">Type your 5-digit zip code to see stores near you. It’s saved on this device only.</p>'}`);
+      const zi = $('#zipIn');
+      zi.addEventListener('input', () => { const v = zi.value.replace(/\D/g, '').slice(0, 5); if (v.length === 5 && v !== state.zip) { state.zip = v; save(); draw(); } });
+      if (!/^\d{5}$/.test(zip)) setTimeout(() => zi.focus(), 250);
+    };
+    draw();
+  }
+
   // ── Shop tab ─────────────────────────────────────────────────────────
   function addShop(name, key) {
     if (state.shop.some((s) => !s.done && s.name.toLowerCase() === name.toLowerCase())) return;
@@ -998,12 +1032,12 @@
     const ideas = Object.entries(unlock).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
     v.innerHTML = `
       <h2>Shopping list</h2>
-      <p class="intro">Bottles you marked Low or Out, your own items, and the purchases that would unlock the most drinks.</p>
+      <p class="intro">Bottles you marked Low or Out, your own items, and the purchases that would unlock the most drinks. Tap 📍 to find a store near you.</p>
       <h3>Running low <span class="count">${low.length}</span></h3>
-      ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : 'low'}</span></span><button class="btn small" data-restock="${esc(b.id)}">Bought it</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
+      ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : 'low'}</span></span><button class="btn small" data-buy="${esc(b.name)}" aria-label="Find ${esc(b.name)} nearby">📍</button><button class="btn small" data-restock="${esc(b.id)}">Bought it</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
       <h3>My list</h3>
       <div class="row"><input class="search grow" id="shopIn" placeholder="Add an item"><button class="btn" id="shopAdd">Add</button></div>
-      ${state.shop.map((s) => `<label class="check ${s.done ? 'done' : ''}"><input type="checkbox" data-shop="${esc(s.id)}" ${s.done ? 'checked' : ''}><span class="grow">${esc(s.name)}</span></label>`).join('')}
+      ${state.shop.map((s) => `<div class="check ${s.done ? 'done' : ''}"><label class="row grow"><input type="checkbox" data-shop="${esc(s.id)}" ${s.done ? 'checked' : ''}><span class="grow">${esc(s.name)}</span></label>${s.done ? '' : `<button class="btn small" data-buy="${esc(s.name)}" aria-label="Find ${esc(s.name)} nearby">📍</button>`}</div>`).join('')}
       ${state.shop.some((s) => s.done) ? '<button class="btn small" id="clearDone">Clear checked items</button>' : ''}
       ${ideas.length ? `<h3>Buy one, unlock more</h3>${ideas.map(([k, names]) => `<div class="check"><span class="grow"><b>${esc(label(k))}</b><br><span class="hint">${esc(names.join(', '))}</span></span><button class="btn small" data-idea="${k}">+ List</button></div>`).join('')}` : ''}
       <div class="btn-row"><button class="btn" id="shareList">Share list</button></div>`;
@@ -1018,6 +1052,7 @@
       }
       render();
     }));
+    v.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => openBuy(b.dataset.buy)));
     const cd = $('#clearDone', v); if (cd) cd.onclick = () => { state.shop = state.shop.filter((s) => !s.done); save(); render(); };
     v.querySelectorAll('[data-idea]').forEach((b) => b.addEventListener('click', () => { addShop(label(b.dataset.idea), b.dataset.idea); save(); render(); toast('Added'); }));
     $('#shareList', v).onclick = () => {
@@ -1032,6 +1067,7 @@
       <h2>More</h2>
       <button class="btn block" id="guideBtn">How to use Artemis Lounge</button>
       <label class="field">Name of your bar<input id="barIn" value="${esc(state.barName)}"></label>
+      <label class="field">Your zip code, for finding stores near you<input id="zipMore" inputmode="numeric" maxlength="5" value="${esc(state.zip)}" placeholder="78201"></label>
       <h3>Recipes</h3>
       <button class="btn block" id="newRecipe">Add your own recipe</button>
       <h3>Backup</h3>
@@ -1044,6 +1080,7 @@
       <button class="btn small danger" id="reset">Erase everything on this phone</button>
       <p class="hint" style="margin-top:28px">Artemis Lounge is free to use. Each person’s bar stays on their own phone and is never uploaded.</p>`;
     $('#barIn', v).addEventListener('change', (e) => { state.barName = e.target.value.trim() || 'Artemis Lounge'; save(); render(); });
+    $('#zipMore', v).addEventListener('change', (e) => { const z = e.target.value.replace(/\D/g, '').slice(0, 5); state.zip = z; save(); toast(z.length === 5 ? 'Zip code saved' : 'Zip code cleared'); });
     $('#newRecipe', v).onclick = editRecipe;
     $('#guideBtn', v).onclick = openGuide;
     $('#backup', v).onclick = backup;
@@ -1111,7 +1148,7 @@
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap <b>Wine</b> to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
-    ['🛒', 'Shop', 'The <b>Shop</b> tab lists Low and Out bottles, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. You can also add your own items and share the list.'],
+    ['🛒', 'Shop', 'The <b>Shop</b> tab lists Low and Out bottles, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],
     ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>More</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],
   ];
   function openGuide() {

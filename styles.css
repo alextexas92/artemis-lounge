@@ -193,3 +193,10 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 .add-course { margin: 14px 0; }
 .add-course select { padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); }
 .pmenu .pcourse { display: block; font-family: var(--sans); font-size: 8pt; letter-spacing: .14em; text-transform: uppercase; color: #9c8143; margin-bottom: 2px; }
+
+/* Where to buy */
+.buy-list { display: grid; gap: 8px; margin-top: 8px; }
+.buy { display: block; text-decoration: none; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.buy b { display: block; color: var(--gold); }
+.buy span { color: var(--muted); font-size: .85rem; }
+.check > label.row { gap: 12px; cursor: pointer; }
