@@ -11,7 +11,7 @@
   const SUBS = window.AL_SUBS;
   const BUILTIN = window.AL_RECIPES;
   const KNOWN_BARCODES = window.AL_KNOWN_BARCODES || {};
-  const LEVELS = [['full', 'Full'], ['three', '¾'], ['half', 'Half'], ['low', 'Low'], ['out', 'Out']];
+  const LEVELS = [['full', 'Full'], ['three', '¾'], ['half', 'Half'], ['low', '¼'], ['out', 'Out']];
   const GROUP_ORDER = ['Spirits', 'Liqueurs & Aperitifs', 'Wine', 'Beer & Cider', 'Mixers', 'Juices', 'Syrups', 'Bitters & Brine', 'Fresh & Pantry', 'Other'];
   // My Bar categories. Each covers one or more ingredient groups.
   const CATS = [
@@ -450,7 +450,7 @@
         <button class="btn primary" id="scanBtn">Scan a bottle</button>
         <button class="btn" id="addBtn">Add ${catName ? esc(catName.toLowerCase()) : 'by name'}</button>
       </div>
-      <p class="intro">${catName ? `Your ${esc(catName.toLowerCase())}.` : 'Everything in your bar. Tap a category above to narrow it down.'} Set each bottle’s level as you use it. <b>Low</b> adds it to Shop. <b>Out</b> stops recipes counting it.</p>
+      <p class="intro">${catName ? `Your ${esc(catName.toLowerCase())}.` : 'Everything in your bar. Tap a category above to narrow it down.'} Set each bottle’s level as you use it. <b>¼</b> adds it to Shop. <b>Out</b> stops recipes counting it.</p>
       <p class="hint">Using a Bluetooth barcode scanner? Tap “Scan a bottle”, then scan. The number fills in by itself.</p>
       ${untyped ? `<p class="hint">${untyped} item${untyped > 1 ? 's need' : ' needs'} a type before recipes can count ${untyped > 1 ? 'them' : 'it'}. Tap Edit.</p>` : ''}
       ${state.bottles.length ? (shown.length ? '' : `<div class="empty">Nothing here yet. Tap <b>Add ${esc(catName.toLowerCase())}</b> or scan one.</div>`) : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>More &gt; Restore</b>.</div>`}
@@ -509,7 +509,7 @@
       <p class="hint">Heard about a wine you want? Add it here with <b>Add a wine</b> and pick “Want to try”.</p>
       <div class="list">${wish.map(wineRow).join('')}</div>
       ${gone.length ? `<h3>Finished <span class="count">${gone.length}</span></h3><div class="list">${gone.map(wineRow).join('')}</div>` : ''}
-      ${barWine.length ? `<h3>Wine for cocktails <span class="count">${barWine.length}</span></h3><p class="hint">Bottles added under My Bar, with Full, Half, Low and Out levels.</p><div class="list">${barWine.sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>` : ''}`;
+      ${barWine.length ? `<h3>Wine for cocktails <span class="count">${barWine.length}</span></h3><p class="hint">Bottles added under My Bar, with Full, ¾, Half, ¼ and Out levels.</p><div class="list">${barWine.sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>` : ''}`;
     wireSwitch(v);
     wireBottleRows(v);
     $('#wScan', v).onclick = () => openScanner('wine');
@@ -1323,9 +1323,9 @@
     const ideas = Object.entries(unlock).filter(([k]) => !hidden.includes(k)).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
     v.innerHTML = `
       <h2>Shopping list</h2>
-      <p class="intro">Bottles you marked Low or Out, your own items, and the purchases that would unlock the most drinks. Tap 📍 to find a store near you, or ✕ to take something off the list.</p>
+      <p class="intro">Bottles you marked ¼ or Out, your own items, and the purchases that would unlock the most drinks. Tap 📍 to find a store near you, or ✕ to take something off the list.</p>
       <h3>Running low <span class="count">${low.length}</span></h3>
-      ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : 'low'}</span></span><button class="btn small" data-buy="${esc(b.name)}" aria-label="Find ${esc(b.name)} nearby">📍</button><button class="btn small" data-restock="${esc(b.id)}">Bought it</button><button class="btn small danger" data-unlow="${esc(b.id)}" aria-label="Remove ${esc(b.name)} from the list">✕</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
+      ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : '¼ left'}</span></span><button class="btn small" data-buy="${esc(b.name)}" aria-label="Find ${esc(b.name)} nearby">📍</button><button class="btn small" data-restock="${esc(b.id)}">Bought it</button><button class="btn small danger" data-unlow="${esc(b.id)}" aria-label="Remove ${esc(b.name)} from the list">✕</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
       <h3>My list</h3>
       <div class="row"><input class="search grow" id="shopIn" placeholder="Add an item"><button class="btn" id="shopAdd">Add</button></div>
       ${state.shop.map((s) => `<div class="check ${s.done ? 'done' : ''}"><label class="row grow"><input type="checkbox" data-shop="${esc(s.id)}" ${s.done ? 'checked' : ''}><span class="grow">${esc(s.name)}</span></label>${s.done ? '' : `<button class="btn small" data-buy="${esc(s.name)}" aria-label="Find ${esc(s.name)} nearby">📍</button>`}<button class="btn small danger" data-sdel="${esc(s.id)}" aria-label="Delete ${esc(s.name)}">✕</button></div>`).join('')}
@@ -1356,7 +1356,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '19';
+  const APP_VERSION = '20';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1532,13 +1532,13 @@
     ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. No luck? Tap <b>Photo of the label</b> and snap the front of the bottle, or <b>Photo of the barcode</b>. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
     ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
-    ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
+    ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? Go to <b>More</b> &gt; <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
-    ['🛒', 'Shop', 'The <b>Shop</b> tab lists Low and Out bottles, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],
+    ['🛒', 'Shop', 'The <b>Shop</b> tab lists bottles at ¼ or Out, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],
     ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>More</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],
   ];
   function openGuide() {
