@@ -688,38 +688,27 @@
     area.innerHTML = '<div class="scanbox"><video playsinline muted></video><div class="aim"></div></div>';
     const video = $('video', area);
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
     } catch (e) { msg.textContent = 'Camera permission was not given. Type the number instead.'; area.innerHTML = ''; return; }
     video.srcObject = stream;
     try { await video.play(); } catch (e) { /* iPhone may need a tap; the stream still runs */ }
     msg.textContent = 'Hold the barcode inside the gold box, about 6 inches away. Not working? Tap Photo of the barcode.';
 
     // Android has a built-in barcode reader, but on some phones it is missing or
-    // reads nothing, so ZXing (saved in vendor/) always runs as well. iPhone uses ZXing only.
+    // reads nothing. iPhone has none. So the ZXing-C++ reader (vendor/) always runs too.
     let native = null, zx = null;
-    if ('BarcodeDetector' in window) {
+    if ('BarcodeDetector' in window && !window.BarcodeDetector.__poly) {
       try {
-        const want = ['upc_a', 'upc_e', 'ean_13', 'ean_8', 'code_128'];
-        const have = window.BarcodeDetector.getSupportedFormats ? await window.BarcodeDetector.getSupportedFormats() : want;
-        const formats = want.filter((f) => have.includes(f));
+        const have = window.BarcodeDetector.getSupportedFormats ? await window.BarcodeDetector.getSupportedFormats() : BAR_FORMATS;
+        const formats = BAR_FORMATS.filter((f) => have.includes(f));
         if (formats.length) native = new window.BarcodeDetector({ formats });
       } catch (e) { native = null; }
     }
-    try { zx = await zxingReader(); } catch (e) { if (!native) { msg.textContent = 'Could not load the scanner. Tap Photo of the barcode, or type the number.'; return; } }
-    const canvas = document.createElement('canvas');
-    let flip = false;
+    try { zx = await barcodeReader(); } catch (e) { if (!native) { msg.textContent = 'Could not load the scanner. Tap Photo of the barcode, or type the number.'; return; } }
     const detect = async () => {
-      if (native) { try { const r = await native.detect(video); if (r[0] && r[0].rawValue) return r[0].rawValue; } catch (e) { /* fall through to ZXing */ } }
-      if (!zx) return null;
-      const vw = video.videoWidth, vh = video.videoHeight;
-      if (!vw) return null;
-      // Alternate between the middle band (where the gold box is) and the whole frame
-      flip = !flip;
-      const sy = flip ? Math.round(vh * 0.3) : 0, sh = flip ? Math.round(vh * 0.4) : vh;
-      const k = Math.min(1, 900 / vw);
-      canvas.width = Math.round(vw * k); canvas.height = Math.round(sh * k);
-      canvas.getContext('2d').drawImage(video, 0, sy, vw, sh, 0, 0, canvas.width, canvas.height);
-      return zx(canvas);
+      if (!video.videoWidth) return null;
+      if (native) { try { const r = await native.detect(video); if (r[0] && r[0].rawValue) return r[0].rawValue; } catch (e) { /* fall through */ } }
+      return zx ? zx(video) : null;
     };
     // Store barcodes carry a check digit, so one good read is enough.
     // Other codes must read the same twice in a row.
@@ -737,23 +726,30 @@
     }, 200);
   }
 
-  // Returns a function that reads a barcode from a canvas, or null if none is found.
-  let zxingP = null;
-  function zxingReader() {
-    if (!zxingP) zxingP = loadScript('vendor/zxing.min.js').then(() => {
-      const Z = window.ZXing, F = Z.BarcodeFormat;
-      const hints = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128]], [Z.DecodeHintType.TRY_HARDER, true]]);
-      const reader = new Z.MultiFormatReader(); reader.setHints(hints);
-      return (canvas) => {
-        try { return reader.decode(new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(canvas)))).getText(); }
-        catch (e) { return null; } finally { reader.reset(); }
-      };
-    }).catch((e) => { zxingP = null; throw e; });
-    return zxingP;
+  // Returns a function that reads a barcode from a video, canvas or picture, or null if none.
+  // Uses ZXing-C++ compiled to WebAssembly (vendor/), which reads tilted and blurry codes.
+  const BAR_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+  let readerP = null;
+  function barcodeReader() {
+    if (!readerP) readerP = loadScript('vendor/barcode-detector.js').then(async () => {
+      const A = window.BarcodeDetectionAPI;
+      const wasm = new URL('vendor/zxing_reader.wasm', location.href).href;
+      A.setZXingModuleOverrides({ locateFile: (path, prefix) => (path.endsWith('.wasm') ? wasm : prefix + path) });
+      const det = new A.BarcodeDetector({ formats: BAR_FORMATS });
+      await det.detect(new ImageData(8, 8)).catch(() => {}); // load the reader now
+      return async (src) => { try { const r = await det.detect(src); return (r[0] && r[0].rawValue) || null; } catch (e) { return null; } };
+    }).catch((e) => { readerP = null; throw e; });
+    return readerP;
   }
   // ── Reading a bottle from a photo of its label ──────────────────────
-  const BRANDS = ["Tito's", 'Smirnoff', 'Absolut', 'Grey Goose', 'Ketel One', 'Belvedere', 'Deep Eddy', 'Svedka', 'New Amsterdam', 'Bacardi', 'Captain Morgan', 'Malibu', 'Kraken', 'Mount Gay', 'Appleton', 'Plantation', 'Diplomatico', 'Tanqueray', 'Bombay', "Hendrick's", 'Beefeater', "Gordon's", 'Aviation', 'Roku', 'The Botanist', 'Patrón', 'Patron', 'Don Julio', 'Casamigos', 'Espolòn', 'Espolon', 'Jose Cuervo', 'Hornitos', 'Sauza', 'Herradura', 'Milagro', 'Teremana', 'Lalo', 'Clase Azul', '1800', 'Del Maguey', "Jack Daniel's", 'Jim Beam', "Maker's Mark", 'Bulleit', 'Woodford Reserve', 'Buffalo Trace', 'Wild Turkey', 'Four Roses', 'Knob Creek', 'Basil Hayden', "Angel's Envy", 'Eagle Rare', 'Elijah Craig', 'Evan Williams', 'Crown Royal', 'Jameson', 'Tullamore', 'Bushmills', 'Johnnie Walker', 'Glenlivet', 'Glenfiddich', 'Macallan', 'Balvenie', 'Lagavulin', 'Laphroaig', 'Monkey Shoulder', 'Dewar', 'Hennessy', 'Rémy Martin', 'Remy Martin', 'Courvoisier', 'Martell', 'Kahlúa', 'Kahlua', 'Baileys', 'Cointreau', 'Grand Marnier', 'Aperol', 'Campari', 'Fireball', 'Disaronno', 'Chambord', 'St-Germain', 'St Germain', 'Frangelico', 'Luxardo', 'Chartreuse', 'Bénédictine', 'Jägermeister', 'Jagermeister', 'Midori', 'DeKuyper', 'Hiram Walker', 'Martini & Rossi', 'Dolin', 'Carpano', 'Cinzano', 'Lillet', 'Angostura', "Peychaud's", 'Fee Brothers', 'Licor 43', 'Tuaca', 'Southern Comfort', "Rose's", 'Monin', 'Fever-Tree', 'Q Mixers', 'Schweppes', 'Canada Dry', 'Topo Chico', 'Mr & Mrs T', 'Filthy', 'Kirkland', "Trader Joe's"];
+  const BRANDS = ['Empress 1908', 'Sipsmith', 'Monkey 47', 'Plymouth', 'Bombay Sapphire', "Ford's", "Uncle Val's", 'Malfy', 'Drumshanbo', 'Citadelle', "Nolet's", 'Brockmans', 'Bols', 'Lucas Bols', 'Ron Zacapa', 'Zacapa', 'Flor de Caña', 'Havana Club', 'Goslings', 'Myers', 'Sailor Jerry', 'Cruzan', 'Casa Noble', 'Cazadores', 'Olmeca', 'El Jimador', 'Avión', 'Codigo 1530', 'Maestro Dobel', 'Volcán', 'Fortaleza', 'Siete Leguas', 'Ocho', 'Mezcal Vago', 'Ilegal', 'Montelobos', "Blanton's", 'Weller', 'Pappy', 'Old Forester', 'Heaven Hill', 'Larceny', 'Michter', 'Rittenhouse', 'Sazerac', 'High West', 'Whistlepig', 'Redbreast', 'Writers Tears', 'Glenmorangie', 'Oban', 'Talisker', 'Ardbeg', 'Chivas Regal', 'Suntory', 'Toki', 'Hibiki', 'Nikka', 'Yamazaki', 'Hakushu', 'Cîroc', 'Ciroc', 'Stolichnaya', 'Stoli', 'Chopin', 'Reyka', 'Skyy', 'Pinnacle', 'Western Son', 'Dripping Springs', 'Garrison Brothers', 'Balcones', 'Still Austin', 'Treaty Oak', 'Hanson', 'Chatham', 'Rumple Minze', 'Goldschläger', 'Drambuie', 'Galliano', 'Amaretto', 'Pama', 'Pimm', 'Fernet', 'Branca', 'Montenegro', 'Averna', 'Cynar', 'Suze', 'Pernod', 'Ricard', 'Absente', 'St. George', 'Giffard', 'Rothman', 'Mr Black', 'Tia Maria', 'Ole Smoky', 'Screwball', 'Skrewball', "Tito's", 'Smirnoff', 'Absolut', 'Grey Goose', 'Ketel One', 'Belvedere', 'Deep Eddy', 'Svedka', 'New Amsterdam', 'Bacardi', 'Captain Morgan', 'Malibu', 'Kraken', 'Mount Gay', 'Appleton', 'Plantation', 'Diplomatico', 'Tanqueray', 'Bombay', "Hendrick's", 'Beefeater', "Gordon's", 'Aviation', 'Roku', 'The Botanist', 'Patrón', 'Patron', 'Don Julio', 'Casamigos', 'Espolòn', 'Espolon', 'Jose Cuervo', 'Hornitos', 'Sauza', 'Herradura', 'Milagro', 'Teremana', 'Lalo', 'Clase Azul', '1800', 'Del Maguey', "Jack Daniel's", 'Jim Beam', "Maker's Mark", 'Bulleit', 'Woodford Reserve', 'Buffalo Trace', 'Wild Turkey', 'Four Roses', 'Knob Creek', 'Basil Hayden', "Angel's Envy", 'Eagle Rare', 'Elijah Craig', 'Evan Williams', 'Crown Royal', 'Jameson', 'Tullamore', 'Bushmills', 'Johnnie Walker', 'Glenlivet', 'Glenfiddich', 'Macallan', 'Balvenie', 'Lagavulin', 'Laphroaig', 'Monkey Shoulder', 'Dewar', 'Hennessy', 'Rémy Martin', 'Remy Martin', 'Courvoisier', 'Martell', 'Kahlúa', 'Kahlua', 'Baileys', 'Cointreau', 'Grand Marnier', 'Aperol', 'Campari', 'Fireball', 'Disaronno', 'Chambord', 'St-Germain', 'St Germain', 'Frangelico', 'Luxardo', 'Chartreuse', 'Bénédictine', 'Jägermeister', 'Jagermeister', 'Midori', 'DeKuyper', 'Hiram Walker', 'Martini & Rossi', 'Dolin', 'Carpano', 'Cinzano', 'Lillet', 'Angostura', "Peychaud's", 'Fee Brothers', 'Licor 43', 'Tuaca', 'Southern Comfort', "Rose's", 'Monin', 'Fever-Tree', 'Q Mixers', 'Schweppes', 'Canada Dry', 'Topo Chico', 'Mr & Mrs T', 'Filthy', 'Kirkland', "Trader Joe's"];
   const LABEL_NOISE = /\b(\d+(\.\d+)?\s?(ml|l|cl|oz|liters?|litre)|alc|vol|proof|abv|%|distilled|bottled|produced|product of|imported|government|warning|surgeon|pregnan|machinery|health|contains|sulfites|www|\.com|inc|llc|co\.|est\.?|since|ky|tx|usa|u\.s\.a|aged|years?|batch|lot)\b/i;
+  function editDist(a, b) {
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
   function parseLabel(text) {
     const flat = text.replace(/\s+/g, ' ');
     const low = flat.toLowerCase();
@@ -776,14 +772,26 @@
       if (score > bestScore) { bestScore = score; best = k; }
     }
     if (best && bestScore >= 0.6) return { name: best.name, key: best.key || guessKey(best.name), size: size || best.size || "", sure: true };
-    // 2. Otherwise build a name from the big words on the label
-    const brand = BRANDS.find((b) => low.includes(b.toLowerCase()));
+    // 2. Otherwise build a name from the big words on the label.
+    // Brand names are matched loosely, since fancy fonts often lose a letter or two.
+    const toks = (text.match(/[A-Za-zÀ-ÿ0-9'&]+/g) || []);
+    let brand = null, brandTok = null;
+    for (const b of BRANDS) {
+      const first = b.toLowerCase().split(' ')[0].replace(/[^a-zà-ÿ0-9]/g, '');
+      if (first.length < 4) { if (low.includes(b.toLowerCase())) { brand = b; break; } continue; }
+      const t = toks.find((x) => { const w = x.toLowerCase().replace(/[^a-zà-ÿ0-9]/g, ''); return w.length >= 4 && (w === first || editDist(w, first) <= Math.floor(first.length / 4) || (w.length >= 5 && first.includes(w))); });
+      if (t) { brand = b; brandTok = t; break; }
+    }
     const lines = text.split('\n').map((l) => l.replace(/[^A-Za-zÀ-ÿ0-9'&. -]/g, ' ').replace(/\s+/g, ' ').trim())
       .filter((l) => l.length >= 3 && l.length <= 30 && !LABEL_NOISE.test(l) && (l.match(/[A-Za-zÀ-ÿ]/g) || []).length / l.length > 0.7);
-    let name = lines.slice(0, 3).join(' ');
-    if (brand && !name.toLowerCase().includes(brand.toLowerCase())) name = `${brand} ${name}`.trim();
-    name = name.split(' ').filter((w, i, a) => a.findIndex((x) => x.toLowerCase() === w.toLowerCase()) === i).slice(0, 7).join(' ');
-    if (name === name.toUpperCase()) name = name.toLowerCase().replace(/(^|[\s-])(\S)/g, (m, a, b) => a + b.toUpperCase());
+    let ws = lines.slice(0, 3).join(' ').split(' ').filter(Boolean);
+    // Drop the brand's misread word and stray lowercase scraps among capital letters
+    const caps = ws.filter((w) => w === w.toUpperCase()).length > ws.length / 2;
+    ws = ws.filter((w) => w !== brandTok && !(caps && w.length <= 4 && w === w.toLowerCase()));
+    if (brand) ws = brand.split(' ').concat(ws.filter((w) => !brand.toLowerCase().split(' ').includes(w.toLowerCase())));
+    let name = ws.filter((w, i, a) => a.findIndex((x) => x.toLowerCase() === w.toLowerCase()) === i).slice(0, 7).join(' ');
+    // Make ALL CAPS words read normally, but leave the brand as written
+    name = name.split(' ').map((w) => (w.length > 1 && w === w.toUpperCase() && /[A-Z]/.test(w) && !(brand && brand.includes(w)) ? w[0] + w.slice(1).toLowerCase() : w)).join(' ');
     return { name, key: guessKey(flat) || guessKey(name), size, sure: false };
   }
   async function scanLabel(file) {
@@ -810,22 +818,27 @@
     const msg = $('#scanMsg');
     msg.textContent = 'Reading the photo…';
     try {
-      const zx = await zxingReader();
+      const zx = await barcodeReader();
       const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
       const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
+      const W = img.naturalWidth, H = img.naturalHeight;
+      // Try the whole photo, then the middle, then each half, in case the barcode is small
+      const crops = [[0, 0, W, H], [W * 0.2, H * 0.2, W * 0.6, H * 0.6], [0, 0, W, H / 2], [0, H / 2, W, H / 2], [0, 0, W / 2, H], [W / 2, 0, W / 2, H]];
       let code = null;
-      for (const max of [1200, 800, 1800]) {
-        const k = Math.min(1, max / Math.max(img.width, img.height));
-        canvas.width = Math.round(img.width * k); canvas.height = Math.round(img.height * k);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        code = zx(canvas);
+      for (const [x, y, w, h] of crops) {
+        const k = Math.min(1, 2000 / Math.max(w, h));
+        canvas.width = Math.round(w * k); canvas.height = Math.round(h * k);
+        ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+        code = await zx(canvas);
         if (code && validCode(code)) break;
+        code = null;
       }
       URL.revokeObjectURL(img.src);
-      if (code && validCode(code)) { msg.textContent = ''; handleCode(code); }
-      else msg.textContent = 'Could not find a barcode in that photo. Get closer so the barcode fills most of the picture, keep it flat and sharp, and try again.';
+      if (code) { msg.textContent = ''; handleCode(code); }
+      else msg.textContent = 'Could not find a barcode in that photo. Hold the phone 4 to 6 inches away so the barcode is sharp and fills about half the picture, and try again.';
     } catch (e) { msg.textContent = 'Could not read that photo. Type the number instead.'; }
   }
+
 
   function loadScript(src) {
     return new Promise((res, rej) => {
@@ -1250,7 +1263,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '15';
+  const APP_VERSION = '16';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
