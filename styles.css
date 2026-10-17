@@ -254,3 +254,4 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu.two .plist { column-count: 2; column-gap: 40px; }
 .pmenu.two .plist .drink { display: inline-block; width: 100%; }
 .pmenu.two .plist .psec { break-after: avoid; }
+.pmenu .psoft span { font-size: 11pt; }

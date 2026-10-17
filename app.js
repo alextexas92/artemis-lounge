@@ -250,7 +250,7 @@
 
     v.innerHTML = `
       <p class="intro">Drinks you can mix with what’s in My Bar. Tap a drink for the full recipe. Zero Proof holds the mocktails.</p>
-      <button class="btn block" id="newRecipe">＋ Add your own recipe or a screenshot</button>
+      <div class="btn-row"><button class="btn" id="newRecipe">＋ Add your own or a screenshot</button><button class="btn" id="findOnline">🔎 Find drinks online</button></div>
       <input class="search" id="q" type="search" placeholder="Search drinks, ingredients or your notes" value="${esc(ui.q)}" autocomplete="off">
       <div class="chips">${bases.map((b) => `<button class="chip ${b === ui.base ? 'on' : ''}" data-base="${esc(b)}">${esc(b)}</button>`).join('')}</div>
       ${state.bottles.length ? '' : `<p class="hint">Your bar is empty, so nothing is ready yet. Add bottles under <b>My Bar</b>, or <a href="#" id="guideLink">see how it works</a>.</p>`}
@@ -264,6 +264,7 @@
     v.querySelectorAll('[data-base]').forEach((b) => b.addEventListener('click', () => { ui.base = b.dataset.base; renderMake(v); }));
     const gl = $('#guideLink', v); if (gl) gl.onclick = (e) => { e.preventDefault(); openGuide(); };
     $('#newRecipe', v).onclick = () => editRecipe();
+    $('#findOnline', v).onclick = () => findOnline();
     v.querySelectorAll('[data-recipe]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.recipe)));
   }
   function card({ r, c }) {
@@ -1093,9 +1094,22 @@
   function menuSwitch() {
     return `<div class="seg" role="tablist"><button role="tab" class="${ui.menuView !== 'dinner' ? 'on' : ''}" data-mview="drinks">Drinks menu</button><button role="tab" class="${ui.menuView === 'dinner' ? 'on' : ''}" data-mview="dinner">Dinner pairing</button></div>`;
   }
+  // Drinks without alcohol she simply has on hand: tea, sodas, sparkling water
+  const softList = () => (state.menu.soft || []).filter(Boolean);
+  const SOFT_IDEAS = ['Iced tea', 'Hot tea', 'Coffee', 'Sparkling water', 'Lemonade'];
+  const SOFT_WORDS = /soda|water|seltzer|tea\b|cola|coke|pepsi|sprite|lemonade|ginger (ale|beer)|tonic|la ?croix|bubly|topo chico|spindrift|perrier|pellegrino|kombucha|root beer|dr\.? pepper/i;
+  function softBox() {
+    const soft = softList(), have = new Set(soft.map((x) => x.toLowerCase()));
+    const fromBar = state.bottles.filter((b) => catOf(b) === 'mixers' && SOFT_WORDS.test(b.name) && b.level !== 'out').map((b) => b.name);
+    const ideas = [...new Set([...fromBar, ...SOFT_IDEAS])].filter((x) => !have.has(x.toLowerCase()));
+    return `<h3>Also available, no alcohol</h3>
+      <label class="field">Tea, sodas, sparkling water or anything else you have. One per line.<textarea id="mSoft" rows="3" placeholder="Iced tea&#10;Topo Chico Lime&#10;Coke Zero">${esc(soft.join('\n'))}</textarea></label>
+      ${ideas.length ? `<div class="chips">${ideas.slice(0, 12).map((x) => `<button class="chip" data-soft="${esc(x)}">＋ ${esc(x)}</button>`).join('')}</div>` : ''}`;
+  }
   function renderMenu(v) {
     if (ui.menuView === 'dinner') return renderDinner(v);
     const items = menuRecipes();
+    const soft = softList();
     const have = stockedKeys();
     v.innerHTML = `${menuSwitch()}
       <h2>Tonight’s menu</h2>
@@ -1107,26 +1121,33 @@
       </ol>
       <label class="field">Menu title<input id="mTitle" value="${esc(state.menu.title)}"></label>
       <button class="btn block" id="pick">Choose drinks (${items.length})</button>
-      ${items.length ? `<p class="hint">Drinks are listed in the order they’re served.</p><div>${withHeadings(items, (r) => {
+      ${items.length || soft.length ? `<p class="hint">Drinks are listed in the order they’re served.</p><div>${withHeadings(items, (r) => {
         const c = check(r, have);
         return `<div class="menu-item"><button class="card" data-recipe="${esc(r.id)}"><div class="title">${esc(r.name)}</div>${c.ok ? '' : `<div class="miss">Need: ${esc(c.missing.map((m) => m.keys.length ? label(m.keys[0]) : m.name).join(', '))}</div>`}</button>
           <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`;
       }, (h) => `<h3>${esc(h)}</h3>`)}</div>
+      ${softBox()}
       <div class="btn-row"><button class="btn primary" id="shareMenu">Guest link &amp; QR</button><button class="btn" id="printMenu">Print menu</button></div>
       <button class="btn block" id="packBtn">🧳 Packing list for making these away from home</button>
       ${items.some((r) => photoURL[r.id]) ? `<label class="check"><input type="checkbox" id="printPhotos" ${state.menu.printPhotos ? 'checked' : ''}><span class="grow">Show drink photos on the printed menu</span></label>` : ''}
-      <button class="btn small danger" id="clearMenu">Clear menu</button>` : '<div class="empty">No drinks on the menu yet.</div>'}`;
+      <button class="btn small danger" id="clearMenu">Clear menu</button>` : `<div class="empty">No drinks on the menu yet.</div>${softBox()}`}`;
     $('#mTitle', v).addEventListener('change', (e) => { state.menu.title = e.target.value.trim() || 'Artemis Lounge'; save(); });
     $('#pick', v).onclick = pickDrinks;
     v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
     v.querySelectorAll('[data-recipe]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.recipe)));
     v.querySelectorAll('[data-note]').forEach((t) => t.addEventListener('change', () => { state.menu.notes[t.dataset.note] = t.value.trim(); save(); }));
-    if (items.length) {
+    const sb = $('#mSoft', v);
+    const keepSoft = () => { state.menu.soft = sb.value.split('\n').map((x) => x.trim()).filter(Boolean); save(); };
+    sb.addEventListener('change', () => { const had = soft.length; keepSoft(); if (!had !== !state.menu.soft.length) render(); });
+    v.querySelectorAll('[data-soft]').forEach((c) => c.addEventListener('click', () => {
+      sb.value = [...sb.value.split('\n').map((x) => x.trim()).filter(Boolean), c.dataset.soft].join('\n'); keepSoft(); render();
+    }));
+    if (items.length || soft.length) {
       $('#shareMenu', v).onclick = shareMenu;
       $('#printMenu', v).onclick = printMenu;
       $('#packBtn', v).onclick = openPacking;
       const pp = $('#printPhotos', v); if (pp) pp.onchange = () => { state.menu.printPhotos = pp.checked; save(); };
-      $('#clearMenu', v).onclick = () => { if (confirm('Clear the menu?')) { state.menu.ids = []; save(); render(); } };
+      $('#clearMenu', v).onclick = () => { if (confirm('Clear the menu?')) { state.menu.ids = []; state.menu.soft = []; save(); render(); } };
     }
   }
 
@@ -1249,6 +1270,7 @@
   // The guest menu travels inside the link itself, so guests need no account.
   async function menuLink() {
     const data = { t: state.menu.title, s: SERVE, d: menuRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0, serveStep(r)]) };
+    if (softList().length) data.n = softList();
     const json = JSON.stringify(data);
     let bytes = new TextEncoder().encode(json), prefix = 'j';
     if ('CompressionStream' in window) {
@@ -1310,11 +1332,64 @@
     m.style.transform = `scale(${fit.z})`;
     area.style.height = `${Math.ceil(h * fit.z) + 2}px`;
   }
-  function readyToPrint() {
-    fitOnePage();
-    openSheet(`<h2>Your menu is ready</h2><p class="hint">Tap Print, then choose a printer or Save as PDF.</p>
-      <div class="btn-row"><button class="btn primary" id="doPrint">🖨️ Print</button></div>`);
-    $('#doPrint').onclick = () => { closeSheet(); window.print(); };
+  // Phone print settings kept splitting the menu, so the menu is turned into a
+  // one-page PDF instead. The picture is fitted inside a Letter page, so it can never spill.
+  async function menuPdf(title) {
+    await Promise.all([loadScript('vendor/html2canvas.min.js'), loadScript('vendor/jspdf.umd.min.js')]);
+    const area = $('#printArea'), m = area.querySelector('.pmenu');
+    m.style.width = m.style.transform = area.style.height = '';
+    m.classList.remove('two');
+    area.classList.add('measure');
+    try {
+      // A tall menu reads better in two columns than shrunk into tiny print
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      if (m.scrollHeight > 1.45 * m.scrollWidth && m.querySelectorAll('.plist .drink').length > 5) m.classList.add('two');
+      // Widen a tall menu until its shape is close to the page, so the print stays larger
+      for (let i = 0; i < 5 && m.offsetHeight / m.offsetWidth > 1.4; i++) m.style.width = `${Math.round(m.offsetWidth * Math.sqrt(m.offsetHeight / m.offsetWidth / 1.33))}px`;
+      const w = m.offsetWidth, h = m.offsetHeight;
+      const scale = Math.min(2.5, Math.sqrt(14e6 / (w * h)));
+      // The canvas copy skips inline SVG, so the art deco trim goes in as pictures
+      const svgs = [...m.querySelectorAll('svg')].map((el) => {
+        const r = el.getBoundingClientRect(), c = getComputedStyle(el).color;
+        const x = el.cloneNode(true); x.setAttribute('width', r.width); x.setAttribute('height', r.height); x.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        return { src: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(x.outerHTML.replace(/currentColor/g, c)), w: r.width, h: r.height };
+      });
+      const canvas = await window.html2canvas(m, { scale, backgroundColor: '#ffffff', useCORS: true, logging: false,
+        onclone: (doc, el) => el.querySelectorAll('svg').forEach((sv, i) => {
+          const im = doc.createElement('img'); im.src = svgs[i].src; im.className = sv.getAttribute('class') || '';
+          im.style.width = `${svgs[i].w}px`; im.style.height = `${svgs[i].h}px`; sv.replaceWith(im);
+        }) });
+      const pdf = new window.jspdf.jsPDF({ unit: 'in', format: 'letter' });
+      const PW = 8.5, PH = 11, MG = 0.5, fit = Math.min((PW - 2 * MG) / w, (PH - 2 * MG) / h);
+      const iw = w * fit, ih = h * fit;
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (PW - iw) / 2, MG, iw, ih);
+      const name = (title || 'Menu').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'Menu';
+      return new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' });
+    } finally { area.classList.remove('measure'); }
+  }
+  async function readyToPrint(title) {
+    openSheet(`<h2>Your menu</h2><p class="hint" id="pdfMsg">Making a one-page PDF…</p>
+      <div class="btn-row"><button class="btn primary" id="doPrint" disabled>🖨️ Print or share</button><a class="btn" id="pdfOpen" hidden>Open PDF</a></div>`);
+    let file;
+    try { file = await menuPdf(title); } catch (e) { file = null; }
+    const msg = $('#pdfMsg'), btn = $('#doPrint'), open = $('#pdfOpen');
+    if (!msg) return; // sheet was closed while it worked
+    btn.disabled = false;
+    if (!file) {
+      // Fall back to the browser's own print
+      msg.textContent = 'Tap Print, then choose a printer or Save as PDF.';
+      fitOnePage();
+      btn.onclick = () => { closeSheet(); window.print(); };
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    open.href = url; open.download = file.name; open.hidden = false;
+    const canShare = navigator.canShare && navigator.canShare({ files: [file] }) && matchMedia('(pointer: coarse)').matches;
+    msg.textContent = canShare
+      ? 'Your menu is a one-page PDF. Tap Print or share, then pick Print. You can also save it to Files or send it.'
+      : 'Your menu is a one-page PDF. Open it, then print it from there.';
+    if (canShare) btn.onclick = () => navigator.share({ files: [file], title: title || 'Menu' }).catch(() => {});
+    else { btn.textContent = '🖨️ Open to print'; btn.onclick = () => { if (!window.open(url, '_blank')) location.href = url; }; open.hidden = true; }
   }
   // Dinner courses that have a dish go at the bottom of the printed drinks menu
   function foodForPrint() {
@@ -1327,11 +1402,12 @@
     const area = $('#printArea');
     area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<h1>${esc(state.menu.title)}</h1>${P_RULE}
       <div class="plist">${withHeadings(menuRecipes(), (r, first) => `${first ? '' : P_DOT}<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}</div>
+      ${softList().length ? `<div class="psec">Also available</div><div class="drink psoft"><span>${softList().map(esc).join('  ·  ')}</span></div>` : ''}
       ${foodForPrint()}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     await Promise.all([...area.querySelectorAll('img.pphoto')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
-    readyToPrint();
+    readyToPrint(state.menu.title);
   }
 
   // ── Dinner pairing ───────────────────────────────────────────────────
@@ -1507,7 +1583,7 @@
       ${d.c.map(([course, dish, pours], i) => `${i ? P_DOT : ''}<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
-    readyToPrint();
+    readyToPrint(d.t);
   }
 
   // ── Where to buy ─────────────────────────────────────────────────────
@@ -1592,7 +1668,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '30';
+  const APP_VERSION = '33';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1704,6 +1780,76 @@
       out.steps.push(l);
     }
     return { name: out.name, ings: out.ings.join('\n'), steps: out.steps.join(' '), garnish: out.garnish };
+  }
+
+
+  // ── Drink search (TheCocktailDB) ─────────────────────────────────────
+  // Free test key "1". A found drink opens in the recipe form so she can check it
+  // before saving, and then it is one of her own recipes (shareable by link).
+  const CDB = 'https://www.thecocktaildb.com/api/json/v1/1/';
+  async function cdb(path) {
+    const res = await fetch(CDB + path);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    return Array.isArray(j.drinks) ? j.drinks : [];
+  }
+  // "3 cl" and "30 ml" become ounces, rounded to the nearest quarter
+  function toOz(measure) {
+    const m = (measure || '').trim().replace(/\s+/g, ' ');
+    const metric = m.match(/^([\d.]+)\s*(cl|ml)\b(.*)$/i);
+    if (!metric) return m;
+    const oz = parseFloat(metric[1]) / (metric[2].toLowerCase() === 'cl' ? 2.957 : 29.57);
+    const q = Math.max(0.25, Math.round(oz * 4) / 4), whole = Math.floor(q), part = { 0.25: '¼', 0.5: '½', 0.75: '¾' }[q - whole] || '';
+    return `${whole || ''}${part} oz${metric[3]}`.trim();
+  }
+  function cdbToDraft(d) {
+    const ings = [];
+    for (let i = 1; i <= 15; i++) {
+      const name = (d['strIngredient' + i] || '').trim();
+      if (name) ings.push([toOz(d['strMeasure' + i]), name].filter(Boolean).join(' '));
+    }
+    const steps = (d.strInstructions || '').trim(), low = steps.toLowerCase();
+    const method = /\bstir/.test(low) ? 'Stir' : /\bmuddle/.test(low) ? 'Muddle' : /\bshake/.test(low) ? 'Shake' : 'Build';
+    const firstSpirit = ings.map((l) => guessKey(l)).find((k) => k && ING[k] && ING[k].group === 'Spirits');
+    return { name: d.strDrink || '', base: firstSpirit ? label(firstSpirit) : '', ings: ings.join('\n'), glass: d.strGlass || '', method, steps };
+  }
+  async function addFromOnline(id) {
+    toast('Getting the recipe…');
+    let d;
+    try { d = (await cdb('lookup.php?i=' + encodeURIComponent(id)))[0]; } catch (e) { d = null; }
+    if (!d) { toast('Could not get that recipe. Check your connection and try again.'); return; }
+    const x = cdbToDraft(d);
+    editRecipe();
+    const set = (fid, v) => { const el = $('#' + fid); if (el && v) el.value = v; };
+    set('rName', x.name); set('rBase', x.base); set('rIngs', x.ings); set('rGlass', x.glass); set('rMethod', x.method); set('rSteps', x.steps);
+    const msg = $('#shotMsg'); if (msg) msg.textContent = 'Found online at TheCocktailDB. Check the amounts and ingredients, fix anything you like, then save it to your recipes.';
+  }
+  function findOnline() {
+    openSheet(`<h2>Find drinks online</h2>
+      <p class="hint">Type a drink name, like Paloma, or an ingredient you have, like Mezcal. Tap a drink to check it and save it to your recipes. Needs a connection.</p>
+      <input class="search" id="oq" type="search" placeholder="Drink name or ingredient" autocomplete="off" enterkeyhint="search">
+      <div class="btn-row"><button class="btn primary" id="oGo">Search</button></div>
+      <div id="oRes"></div>
+      <p class="hint">Recipes from TheCocktailDB.com.</p>`);
+    const q = $('#oq'), out = $('#oRes');
+    setTimeout(() => q.focus(), 250);
+    const mine = new Set(state.custom.map((r) => r.name.toLowerCase()));
+    const row = (d) => `<button class="card" data-cdb="${esc(d.idDrink)}"><div class="title">${esc(d.strDrink)}</div>${mine.has((d.strDrink || '').toLowerCase()) ? '<div class="meta">Already in your recipes</div>' : ''}</button>`;
+    const go = async () => {
+      const t = q.value.trim(); if (!t) return;
+      out.innerHTML = '<p class="hint">Searching…</p>';
+      const [byName, byIng] = await Promise.allSettled([cdb('search.php?s=' + encodeURIComponent(t)), cdb('filter.php?i=' + encodeURIComponent(t))]);
+      if (byName.status === 'rejected' && byIng.status === 'rejected') { out.innerHTML = '<p class="hint">Could not reach the drink list. Check your connection and try again.</p>'; return; }
+      const names = byName.status === 'fulfilled' ? byName.value : [];
+      const seen = new Set(names.map((d) => d.idDrink));
+      const withIng = (byIng.status === 'fulfilled' ? byIng.value : []).filter((d) => !seen.has(d.idDrink)).sort((a, b) => a.strDrink.localeCompare(b.strDrink));
+      out.innerHTML = (names.length ? `<h3>Drinks named “${esc(t)}” <span class="count">${names.length}</span></h3><div class="list">${names.map(row).join('')}</div>` : '') +
+        (withIng.length ? `<h3>Drinks with ${esc(t)} <span class="count">${withIng.length}</span></h3><div class="list">${withIng.map(row).join('')}</div>` : '') ||
+        `<p class="hint">Nothing found for “${esc(t)}”. Try a shorter name, or one ingredient like Gin or Lime.</p>`;
+      out.querySelectorAll('[data-cdb]').forEach((b) => b.addEventListener('click', () => addFromOnline(b.dataset.cdb)));
+    };
+    $('#oGo').onclick = go;
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); q.blur(); go(); } });
   }
 
   function editRecipe(r) {

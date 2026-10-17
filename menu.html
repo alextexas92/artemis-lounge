@@ -19,6 +19,7 @@
   button.drink:last-of-type { border-bottom:1px solid var(--line); }
   .drink b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.6rem; font-weight:600; }
   .drink span { color:var(--muted); font-size:.95rem; }
+  .drink.soft b { font-size:1.3rem; }
   .sec { font-size:.72rem; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); margin:26px 0 6px; text-align:center; }
   .drink .zp { display:table; margin-left:auto !important; margin-right:auto !important; font-style:normal; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--gold); border:1px solid var(--gold); border-radius:999px; padding:1px 8px; margin:2px 0 6px; }
   .pick { position:fixed; inset:0; background:rgba(10,5,12,.92); display:flex; align-items:center; justify-content:center; padding:24px; }
@@ -85,17 +86,19 @@
         const head = data.s && st != null && (i === 0 || data.d[i - 1][3] !== st) ? `<div class="sec">${esc(data.s[st])}</div>` : '';
         const dot = !head && i ? DOT : '';
         return `${head}${dot}<button class="drink" data-i="${i}"><b>${esc(n)}</b>${z ? '<em class="zp">zero proof</em>' : ''}<span>${esc(d)}</span></button>`;
-      }).join('') + `${RULE}<div class="cheers">Cheers</div>`;
+      }).join('') +
+      (data.n && data.n.length ? `<div class="sec">Also available</div>` + data.n.map((n, i) => `${i ? DOT : ''}<button class="drink soft" data-n="${esc(n)}"><b>${esc(n)}</b></button>`).join('') : '') +
+      `${RULE}<div class="cheers">Cheers</div>`;
     const pick = document.getElementById('pick');
     let chosen = '';
     m.querySelectorAll('.drink').forEach((b) => b.addEventListener('click', () => {
-      chosen = data.d[b.dataset.i][0];
+      chosen = b.dataset.n || data.d[b.dataset.i][0];
       document.getElementById('pickName').textContent = chosen;
       pick.hidden = false;
     }));
     document.getElementById('back').onclick = () => { pick.hidden = true; };
     document.getElementById('tell').onclick = async () => {
-      const text = `I'd love a ${chosen}, please!`;
+      const text = `I'd love ${/^[aeiou]/i.test(chosen) ? 'an' : 'a'} ${chosen}, please!`;
       try { if (navigator.share) return await navigator.share({ text }); } catch (e) { return; }
       location.href = 'sms:?&body=' + encodeURIComponent(text);
     };
