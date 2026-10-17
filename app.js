@@ -1286,10 +1286,21 @@
     return new URL('menu.html#' + prefix + b64, location.href).href;
   }
 
+  // QR codes come from a vendored generator. The old CDN library failed on long menu links.
+  async function qrFor(text) {
+    await loadScript('vendor/qrcode.js');
+    const q = window.qrcode(0, 'L'); q.addData(text, 'Byte'); q.make();
+    return q;
+  }
+  // Draw with whole device pixels per square so phone cameras read it cleanly
   async function makeQR(el, text, size) {
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
-    el.innerHTML = '';
-    new window.QRCode(el, { text, width: size, height: size, correctLevel: window.QRCode.CorrectLevel.L });
+    const q = await qrFor(text), n = q.getModuleCount() + 8, dpr = window.devicePixelRatio || 1;
+    const cell = Math.max(1, Math.floor((size * dpr) / n)), px = cell * n;
+    const c = document.createElement('canvas'); c.width = c.height = px;
+    c.style.width = c.style.height = `${px / dpr}px`;
+    const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, px, px); g.fillStyle = '#000';
+    for (let r = 0; r < n - 8; r++) for (let k = 0; k < n - 8; k++) if (q.isDark(r, k)) g.fillRect((k + 4) * cell, (r + 4) * cell, cell, cell);
+    el.innerHTML = ''; el.appendChild(c); el.dataset.qr = text;
   }
 
   async function shareMenu() {
@@ -1297,7 +1308,7 @@
     openSheet(`<h2>Guest menu</h2><p class="hint">Guests scan this with their phone camera. No app or account needed.</p>
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Preview</a></div>`);
-    try { await makeQR($('#qrBox'), url, 240); } catch (e) { $('#qrBox').textContent = 'QR code needs an internet connection.'; }
+    try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
     $('#sendLink').onclick = () => shareText(state.menu.title, `${state.menu.title}: tonight’s cocktail menu\n${url}`);
   }
 
@@ -1341,6 +1352,10 @@
     const area = $('#printArea'), m = area.querySelector('.pmenu');
     m.style.width = m.style.transform = area.style.height = '';
     m.classList.remove('two');
+    // The QR code is drawn straight into the PDF, sharp and full size, below the menu
+    const foot = m.querySelector('.foot'), qrText = foot && foot.querySelector('.pqr') && foot.querySelector('.pqr').dataset.qr;
+    const q = qrText ? await qrFor(qrText).catch(() => null) : null;
+    if (foot) foot.style.display = 'none';
     area.classList.add('measure');
     try {
       // A tall menu reads better in two columns than shrunk into tiny print
@@ -1362,12 +1377,21 @@
           im.style.width = `${svgs[i].w}px`; im.style.height = `${svgs[i].h}px`; sv.replaceWith(im);
         }) });
       const pdf = new window.jspdf.jsPDF({ unit: 'in', format: 'letter' });
-      const PW = 8.5, PH = 11, MG = 0.5, fit = Math.min((PW - 2 * MG) / w, (PH - 2 * MG) / h);
+      const PW = 8.5, PH = 11, MG = 0.5;
+      const n = q ? q.getModuleCount() + 8 : 0, qs = q ? Math.min(2.2, Math.max(1.4, n * 0.018)) : 0, footH = q ? qs + 0.45 : 0;
+      const fit = Math.min((PW - 2 * MG) / w, (PH - 2 * MG - footH) / h);
       const iw = w * fit, ih = h * fit;
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (PW - iw) / 2, MG, iw, ih);
+      if (q) {
+        const top = MG + ih + 0.2, x0 = (PW - qs) / 2, cell = qs / n;
+        pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(102);
+        pdf.text('Scan to see this menu on your phone', PW / 2, top + 0.05, { align: 'center' });
+        pdf.setFillColor(0, 0, 0);
+        for (let r = 0; r < n - 8; r++) for (let k = 0; k < n - 8; k++) if (q.isDark(r, k)) pdf.rect(x0 + (k + 4) * cell, top + 0.15 + (r + 4) * cell, cell, cell, 'F');
+      }
       const name = (title || 'Menu').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'Menu';
       return new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' });
-    } finally { area.classList.remove('measure'); }
+    } finally { area.classList.remove('measure'); if (foot) foot.style.display = ''; }
   }
   async function readyToPrint(title) {
     openSheet(`<h2>Your menu</h2><p class="hint" id="pdfMsg">Making a one-page PDF…</p>
@@ -1380,6 +1404,7 @@
     if (!file) {
       // Fall back to the browser's own print
       msg.textContent = 'Tap Print, then choose a printer or Save as PDF.';
+      const pq = $('#pqr'); if (pq && pq.dataset.qr) await makeQR(pq, pq.dataset.qr, 150).catch(() => {});
       fitOnePage();
       btn.onclick = () => { closeSheet(); window.print(); };
       return;
@@ -1407,7 +1432,7 @@
       ${softList().length ? `<div class="psec">Also available</div><div class="drink psoft"><span>${softList().map(esc).join('  ·  ')}</span></div>` : ''}
       ${foodForPrint()}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
-    try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
+    $('#pqr').dataset.qr = url;
     await Promise.all([...area.querySelectorAll('img.pphoto')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
     readyToPrint(state.menu.title);
   }
@@ -1574,7 +1599,7 @@
     openSheet(`<h2>Dinner menu</h2><p class="hint">Guests scan this with their phone camera to see each course and what’s poured with it.</p>
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Preview</a></div>`);
-    try { await makeQR($('#qrBox'), url, 240); } catch (e) { $('#qrBox').textContent = 'QR code needs an internet connection.'; }
+    try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
     $('#sendLink').onclick = () => shareText(state.dinner.title, `${state.dinner.title}\n${url}`);
   }
   async function printDinner() {
@@ -1584,7 +1609,7 @@
     area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<h1>${esc(d.t)}</h1>${P_RULE}
       ${d.c.map(([course, dish, pours], i) => `${i ? P_DOT : ''}<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
-    try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
+    $('#pqr').dataset.qr = url;
     readyToPrint(d.t);
   }
 
@@ -1670,7 +1695,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '34';
+  const APP_VERSION = '35';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
