@@ -1549,7 +1549,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '26';
+  const APP_VERSION = '27';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1567,6 +1567,7 @@
       <button class="btn block" id="guideBtn">How to use Artemis Lounge</button>
       <label class="field">Name of your bar<input id="barIn" value="${esc(state.barName)}"></label>
       <label class="field">Your zip code, for finding stores near you<input id="zipMore" inputmode="numeric" maxlength="5" value="${esc(state.zip)}" placeholder="78201"></label>
+      <label class="check"><input type="checkbox" id="bigMore" ${state.bigText ? 'checked' : ''}><span class="grow">Larger text everywhere</span></label>
       <h3>Updates</h3>
       <p class="hint">The app checks for a new version each time it opens. Tap below, or the ↻ button at the top, to check right now. Your bar stays saved.</p>
       <button class="btn block" id="updBtn">Check for updates</button>
@@ -1587,6 +1588,7 @@
     $('#newRecipe', v).onclick = () => editRecipe();
     $('#guideBtn', v).onclick = openGuide;
     $('#updBtn', v).onclick = refreshApp;
+    $('#bigMore', v).onchange = (e) => { state.bigText = e.target.checked; save(); render(); };
     $('#backup', v).onclick = backup;
     $('#restore', v).onclick = () => $('#restoreFile', v).click();
     $('#restoreFile', v).addEventListener('change', (e) => restore(e.target.files[0]));
@@ -1802,6 +1804,9 @@
     navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController && !window.__reloaded) { window.__reloaded = true; location.reload(); } });
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
   }
+  // iPhone ignores the no-zoom setting for pinches, so stop pinch zoom here too.
+  // The Larger text button is the way to make words bigger.
+  ['gesturestart', 'gesturechange'].forEach((t) => document.addEventListener(t, (e) => e.preventDefault(), { passive: false }));
   $('#helpBtn').addEventListener('click', openGuide);
   $('#refreshBtn').addEventListener('click', refreshApp);
   render();
