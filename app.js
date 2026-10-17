@@ -395,7 +395,7 @@
 
   // ── My Bar tab ───────────────────────────────────────────────────────
   function bottleRow(b) {
-    const typeTxt = b.key ? label(b.key) : '<span class="warn">Pick a type so recipes can use it</span>';
+    const typeTxt = b.key ? label(b.key) : catOf(b) === 'premix' ? 'Ready to pour' : '<span class="warn">Pick a type so recipes can use it</span>';
     return `<div class="bottle" data-bottle="${esc(b.id)}">
       <div class="row"><div class="grow"><div class="name">${esc(b.name)}</div><div class="meta">${typeTxt}${b.size ? ' · ' + esc(b.size) : ''}</div></div>
       <div class="qty" role="group" aria-label="Number of bottles"><button data-qty="-1" aria-label="One fewer bottle">−</button><span>${b.qty || 1}</span><button data-qty="1" aria-label="One more bottle">+</button></div>
@@ -1356,7 +1356,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '20';
+  const APP_VERSION = '21';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
