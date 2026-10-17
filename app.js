@@ -1,6 +1,6 @@
 /* Artemis Lounge: home bar companion.
  * Everything a person enters is kept in this browser (localStorage), so each
- * phone holds its own bar. Backup/Restore in "More" moves it between devices.
+ * phone holds its own bar. Backup/Restore in "Settings" moves it between devices.
  */
 (function () {
   'use strict';
@@ -68,7 +68,7 @@
   function save() {
     applyTypes();
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
-    catch (e) { toast('Could not save on this device. Use More > Backup.'); }
+    catch (e) { toast('Could not save on this device. Use Settings > Backup.'); }
   }
   const uid = () => Math.random().toString(36).slice(2, 9);
   applyTypes();
@@ -250,6 +250,7 @@
 
     v.innerHTML = `
       <p class="intro">Drinks you can mix with what’s in My Bar. Tap a drink for the full recipe. Zero Proof holds the mocktails.</p>
+      <button class="btn block" id="newRecipe">＋ Add your own recipe or a screenshot</button>
       <input class="search" id="q" type="search" placeholder="Search drinks, ingredients or your notes" value="${esc(ui.q)}" autocomplete="off">
       <div class="chips">${bases.map((b) => `<button class="chip ${b === ui.base ? 'on' : ''}" data-base="${esc(b)}">${esc(b)}</button>`).join('')}</div>
       ${state.bottles.length ? '' : `<p class="hint">Your bar is empty, so nothing is ready yet. Add bottles under <b>My Bar</b>, or <a href="#" id="guideLink">see how it works</a>.</p>`}
@@ -262,6 +263,7 @@
     qi.addEventListener('input', () => { ui.q = qi.value; const pos = qi.selectionStart; renderMake(v); const n = $('#q', v); n.focus(); n.setSelectionRange(pos, pos); });
     v.querySelectorAll('[data-base]').forEach((b) => b.addEventListener('click', () => { ui.base = b.dataset.base; renderMake(v); }));
     const gl = $('#guideLink', v); if (gl) gl.onclick = (e) => { e.preventDefault(); openGuide(); };
+    $('#newRecipe', v).onclick = () => editRecipe();
     v.querySelectorAll('[data-recipe]').forEach((b) => b.addEventListener('click', () => openRecipe(b.dataset.recipe)));
   }
   function card({ r, c }) {
@@ -1548,8 +1550,8 @@
     };
   }
 
-  // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '27';
+  // ── Settings tab ─────────────────────────────────────────────────────────
+  const APP_VERSION = '28';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1563,7 +1565,7 @@
 
   function renderMore(v) {
     v.innerHTML = `
-      <h2>More</h2>
+      <h2>Settings</h2>
       <button class="btn block" id="guideBtn">How to use Artemis Lounge</button>
       <label class="field">Name of your bar<input id="barIn" value="${esc(state.barName)}"></label>
       <label class="field">Your zip code, for finding stores near you<input id="zipMore" inputmode="numeric" maxlength="5" value="${esc(state.zip)}" placeholder="78201"></label>
@@ -1572,8 +1574,6 @@
       <p class="hint">The app checks for a new version each time it opens. Tap below, or the ↻ button at the top, to check right now. Your bar stays saved.</p>
       <button class="btn block" id="updBtn">Check for updates</button>
       <p class="hint" id="verLbl">Version ${APP_VERSION}</p>
-      <h3>Recipes</h3>
-      <button class="btn block" id="newRecipe">Add your own recipe</button>
       <h3>Backup</h3>
       <p class="hint">Your bar is saved on this device. Save a backup file now and then, and use it to move to a new phone. The backup includes your drink photos.</p>
       <div class="btn-row"><button class="btn" id="backup">Save backup file</button><button class="btn" id="restore">Restore from file</button></div>
@@ -1585,7 +1585,6 @@
       <p class="hint" style="margin-top:28px">Artemis Lounge is free to use. Each person’s bar stays on their own phone and is never uploaded.</p>`;
     $('#barIn', v).addEventListener('change', (e) => { state.barName = e.target.value.trim() || 'Artemis Lounge'; save(); render(); });
     $('#zipMore', v).addEventListener('change', (e) => { const z = e.target.value.replace(/\D/g, '').slice(0, 5); state.zip = z; save(); toast(z.length === 5 ? 'Zip code saved' : 'Zip code cleared'); });
-    $('#newRecipe', v).onclick = () => editRecipe();
     $('#guideBtn', v).onclick = openGuide;
     $('#updBtn', v).onclick = refreshApp;
     $('#bigMore', v).onchange = (e) => { state.bigText = e.target.checked; save(); render(); };
@@ -1726,15 +1725,15 @@
   const GUIDE = [
     ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. No luck? Tap <b>Photo of the label</b> and snap the front of the bottle, or <b>Photo of the barcode</b>. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it. Not in the list? Pick <b>Not listed? Name it yourself</b> and type it in, like Peppermint Vodka. Recipes you add later will find it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
-    ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
+    ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>Settings</b> &gt; <b>Check for updates</b>.'],
     ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
-    ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? Go to <b>More</b> &gt; <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
+    ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? On the <b>Make</b> tab, tap <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. Making drinks somewhere else? Tap <b>Packing list</b> for the bottles, garnishes, tools and glasses to bring. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
     ['🛒', 'Shop', 'The <b>Shop</b> tab lists bottles at ¼ or Out, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],
-    ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>More</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],
+    ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>Settings</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],
   ];
   function openGuide() {
     openSheet(`<h2>How Artemis Lounge works</h2>
