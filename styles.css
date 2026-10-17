@@ -204,3 +204,5 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 /* My Bar categories */
 .cat-chips { padding-top: 4px; margin-bottom: 6px; flex-wrap: wrap; overflow: visible; }
 .chip .ccount { font-size: .75rem; opacity: .7; margin-left: 2px; }
+
+.top-btns { display: flex; gap: 8px; flex: none; }

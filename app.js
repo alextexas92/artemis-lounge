@@ -1112,12 +1112,28 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
+  const APP_VERSION = '11';
+  // Home screen apps have no reload button, so this pulls the newest files and reloads.
+  async function refreshApp() {
+    toast('Checking for updates…');
+    try {
+      const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+      if (reg) await reg.update();
+    } catch (e) {}
+    window.__reloaded = true;
+    setTimeout(() => location.reload(), 400);
+  }
+
   function renderMore(v) {
     v.innerHTML = `
       <h2>More</h2>
       <button class="btn block" id="guideBtn">How to use Artemis Lounge</button>
       <label class="field">Name of your bar<input id="barIn" value="${esc(state.barName)}"></label>
       <label class="field">Your zip code, for finding stores near you<input id="zipMore" inputmode="numeric" maxlength="5" value="${esc(state.zip)}" placeholder="78201"></label>
+      <h3>Updates</h3>
+      <p class="hint">The app checks for a new version each time it opens. Tap below, or the ↻ button at the top, to check right now. Your bar stays saved.</p>
+      <button class="btn block" id="updBtn">Check for updates</button>
+      <p class="hint" id="verLbl">Version ${APP_VERSION}</p>
       <h3>Recipes</h3>
       <button class="btn block" id="newRecipe">Add your own recipe</button>
       <h3>Backup</h3>
@@ -1133,6 +1149,7 @@
     $('#zipMore', v).addEventListener('change', (e) => { const z = e.target.value.replace(/\D/g, '').slice(0, 5); state.zip = z; save(); toast(z.length === 5 ? 'Zip code saved' : 'Zip code cleared'); });
     $('#newRecipe', v).onclick = editRecipe;
     $('#guideBtn', v).onclick = openGuide;
+    $('#updBtn', v).onclick = refreshApp;
     $('#backup', v).onclick = backup;
     $('#restore', v).onclick = () => $('#restoreFile', v).click();
     $('#restoreFile', v).addEventListener('change', (e) => restore(e.target.files[0]));
@@ -1193,6 +1210,7 @@
   const GUIDE = [
     ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera, or type the barcode number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
+    ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
     ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
@@ -1260,6 +1278,7 @@
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
   }
   $('#helpBtn').addEventListener('click', openGuide);
+  $('#refreshBtn').addEventListener('click', refreshApp);
   render();
   loadPhotos().then(() => { if (Object.keys(photoURL).length) render(); });
   loadFromLink();
