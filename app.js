@@ -665,8 +665,9 @@
     openSheet(`
       <h2>${scanMode === 'wine' ? 'Scan a wine' : 'Scan a bottle'}</h2>
       <label class="field">Barcode scanner or type the number<input id="codeIn" inputmode="numeric" autocomplete="off" placeholder="Scan now, or type digits and press Enter"></label>
-      <div class="btn-row"><button class="btn primary" id="camBtn">Use phone camera</button><button class="btn" id="photoScan">Take a photo</button><button class="btn" id="nameBtn">No barcode? Add by name</button></div>
+      <div class="btn-row"><button class="btn primary" id="camBtn">Use phone camera</button><button class="btn" id="labelScan">📷 Photo of the label</button><button class="btn" id="photoScan">Photo of the barcode</button><button class="btn" id="nameBtn">No barcode? Add by name</button></div>
       <input type="file" id="scanFile" accept="image/*" capture="environment" hidden>
+      <input type="file" id="labelFile" accept="image/*" capture="environment" hidden>
       <div id="camArea"></div>
       <p class="hint" id="scanMsg"></p>`, stopCamera);
     const body = $('#sheetBody');
@@ -675,6 +676,8 @@
     codeIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleCode(codeIn.value.trim()); } });
     $('#camBtn', body).onclick = startCamera;
     $('#photoScan', body).onclick = () => { stopCamera(); $('#camArea').innerHTML = ''; $('#scanFile', body).click(); };
+    $('#labelScan', body).onclick = () => { stopCamera(); $('#camArea').innerHTML = ''; $('#labelFile', body).click(); };
+    $('#labelFile', body).addEventListener('change', (e) => { if (e.target.files[0]) scanLabel(e.target.files[0]); e.target.value = ''; });
     $('#scanFile', body).addEventListener('change', (e) => { if (e.target.files[0]) scanPhoto(e.target.files[0]); e.target.value = ''; });
     $('#nameBtn', body).onclick = () => { stopCamera(); (scanMode === 'wine' ? editWine : editBottle)(null); };
   }
@@ -689,7 +692,7 @@
     } catch (e) { msg.textContent = 'Camera permission was not given. Type the number instead.'; area.innerHTML = ''; return; }
     video.srcObject = stream;
     try { await video.play(); } catch (e) { /* iPhone may need a tap; the stream still runs */ }
-    msg.textContent = 'Hold the barcode inside the gold box, about 6 inches away. Not working? Tap Take a photo.';
+    msg.textContent = 'Hold the barcode inside the gold box, about 6 inches away. Not working? Tap Photo of the barcode.';
 
     // Android has a built-in barcode reader, but on some phones it is missing or
     // reads nothing, so ZXing (saved in vendor/) always runs as well. iPhone uses ZXing only.
@@ -702,7 +705,7 @@
         if (formats.length) native = new window.BarcodeDetector({ formats });
       } catch (e) { native = null; }
     }
-    try { zx = await zxingReader(); } catch (e) { if (!native) { msg.textContent = 'Could not load the scanner. Tap Take a photo, or type the number.'; return; } }
+    try { zx = await zxingReader(); } catch (e) { if (!native) { msg.textContent = 'Could not load the scanner. Tap Photo of the barcode, or type the number.'; return; } }
     const canvas = document.createElement('canvas');
     let flip = false;
     const detect = async () => {
@@ -748,6 +751,60 @@
     }).catch((e) => { zxingP = null; throw e; });
     return zxingP;
   }
+  // ── Reading a bottle from a photo of its label ──────────────────────
+  const BRANDS = ["Tito's", 'Smirnoff', 'Absolut', 'Grey Goose', 'Ketel One', 'Belvedere', 'Deep Eddy', 'Svedka', 'New Amsterdam', 'Bacardi', 'Captain Morgan', 'Malibu', 'Kraken', 'Mount Gay', 'Appleton', 'Plantation', 'Diplomatico', 'Tanqueray', 'Bombay', "Hendrick's", 'Beefeater', "Gordon's", 'Aviation', 'Roku', 'The Botanist', 'Patrón', 'Patron', 'Don Julio', 'Casamigos', 'Espolòn', 'Espolon', 'Jose Cuervo', 'Hornitos', 'Sauza', 'Herradura', 'Milagro', 'Teremana', 'Lalo', 'Clase Azul', '1800', 'Del Maguey', "Jack Daniel's", 'Jim Beam', "Maker's Mark", 'Bulleit', 'Woodford Reserve', 'Buffalo Trace', 'Wild Turkey', 'Four Roses', 'Knob Creek', 'Basil Hayden', "Angel's Envy", 'Eagle Rare', 'Elijah Craig', 'Evan Williams', 'Crown Royal', 'Jameson', 'Tullamore', 'Bushmills', 'Johnnie Walker', 'Glenlivet', 'Glenfiddich', 'Macallan', 'Balvenie', 'Lagavulin', 'Laphroaig', 'Monkey Shoulder', 'Dewar', 'Hennessy', 'Rémy Martin', 'Remy Martin', 'Courvoisier', 'Martell', 'Kahlúa', 'Kahlua', 'Baileys', 'Cointreau', 'Grand Marnier', 'Aperol', 'Campari', 'Fireball', 'Disaronno', 'Chambord', 'St-Germain', 'St Germain', 'Frangelico', 'Luxardo', 'Chartreuse', 'Bénédictine', 'Jägermeister', 'Jagermeister', 'Midori', 'DeKuyper', 'Hiram Walker', 'Martini & Rossi', 'Dolin', 'Carpano', 'Cinzano', 'Lillet', 'Angostura', "Peychaud's", 'Fee Brothers', 'Licor 43', 'Tuaca', 'Southern Comfort', "Rose's", 'Monin', 'Fever-Tree', 'Q Mixers', 'Schweppes', 'Canada Dry', 'Topo Chico', 'Mr & Mrs T', 'Filthy', 'Kirkland', "Trader Joe's"];
+  const LABEL_NOISE = /\b(\d+(\.\d+)?\s?(ml|l|cl|oz|liters?|litre)|alc|vol|proof|abv|%|distilled|bottled|produced|product of|imported|government|warning|surgeon|pregnan|machinery|health|contains|sulfites|www|\.com|inc|llc|co\.|est\.?|since|ky|tx|usa|u\.s\.a|aged|years?|batch|lot)\b/i;
+  function parseLabel(text) {
+    const flat = text.replace(/\s+/g, ' ');
+    const low = flat.toLowerCase();
+    // Only trust the usual bottle sizes, since small print often misreads
+    const sz = flat.match(/(\d+(?:\.\d+)?)\s?(ml|l|liter|litre)\b/i);
+    let size = '';
+    if (sz) {
+      const v = sz[1].replace(/^175$/, '1.75').replace(/^15$/, '1.5');
+      if (/ml/i.test(sz[2])) size = ['200', '375', '700', '750', '1000'].includes(v) ? `${v}ml` : '';
+      else size = ['1', '1.5', '1.75', '3'].includes(v) ? `${v}L` : '';
+    }
+    // 1. A bottle this phone or the Mac app already knows
+    const known = Object.values(KNOWN_BARCODES).concat(Object.values(state.learned || {}), state.bottles);
+    const words = new Set(low.match(/[a-zà-ÿ0-9']{3,}/g) || []);
+    let best = null, bestScore = 0;
+    for (const k of known) {
+      const kw = (k.name || '').toLowerCase().match(/[a-zà-ÿ0-9']{3,}/g) || [];
+      if (kw.length < 2) continue;
+      const score = kw.filter((w) => words.has(w)).length / kw.length;
+      if (score > bestScore) { bestScore = score; best = k; }
+    }
+    if (best && bestScore >= 0.6) return { name: best.name, key: best.key || guessKey(best.name), size: size || best.size || "", sure: true };
+    // 2. Otherwise build a name from the big words on the label
+    const brand = BRANDS.find((b) => low.includes(b.toLowerCase()));
+    const lines = text.split('\n').map((l) => l.replace(/[^A-Za-zÀ-ÿ0-9'&. -]/g, ' ').replace(/\s+/g, ' ').trim())
+      .filter((l) => l.length >= 3 && l.length <= 30 && !LABEL_NOISE.test(l) && (l.match(/[A-Za-zÀ-ÿ]/g) || []).length / l.length > 0.7);
+    let name = lines.slice(0, 3).join(' ');
+    if (brand && !name.toLowerCase().includes(brand.toLowerCase())) name = `${brand} ${name}`.trim();
+    name = name.split(' ').filter((w, i, a) => a.findIndex((x) => x.toLowerCase() === w.toLowerCase()) === i).slice(0, 7).join(' ');
+    if (name === name.toUpperCase()) name = name.toLowerCase().replace(/(^|[\s-])(\S)/g, (m, a, b) => a + b.toUpperCase());
+    return { name, key: guessKey(flat) || guessKey(name), size, sure: false };
+  }
+  async function scanLabel(file) {
+    const msg = $('#scanMsg');
+    msg.textContent = 'Reading the label… The first time takes a little longer.';
+    try {
+      const img = await shrinkImage(file, 1600);
+      const text = await readImageText(img, (n) => { msg.textContent = `Reading the label… ${n}%`; }, true);
+      const p = parseLabel(text);
+      if (!p.name) { msg.textContent = 'Could not read the label. Try again in good light with the label filling the picture, or tap Add by name.'; return; }
+      const have = scanMode === 'bar' && state.bottles.find((b) => b.name.toLowerCase() === p.name.toLowerCase());
+      if (have && confirm(`${have.name} is already in your bar. Add another bottle?`)) {
+        state.bottles.push(Object.assign({}, have, { id: uid(), level: 'full', added: new Date().toISOString().slice(0, 10) }));
+        save(); closeSheet(); render(); toast('Added another bottle'); return;
+      }
+      if (scanMode === 'wine') editWine(null, { name: p.name, type: guessWineType(text) });
+      else editBottle(null, { name: p.name, key: p.key, size: p.size });
+      toast(p.sure ? 'Found it. Check and save.' : 'Check the name and fix anything it misread');
+    } catch (e) { msg.textContent = 'The label reader could not load. Check your connection, or tap Add by name.'; }
+  }
+
   // Backup plan: read the barcode from a photo taken with the regular camera app.
   async function scanPhoto(file) {
     const msg = $('#scanMsg');
@@ -1193,7 +1250,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '14';
+  const APP_VERSION = '15';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1279,13 +1336,17 @@
     });
     return ocrLib;
   }
-  async function readScreenshot(blob, onPct) {
+  async function readImageText(blob, onPct = () => {}, sparse = false) {
     const T = await loadOcr();
     const w = await T.createWorker('eng', 1, {
       workerPath: new URL('ocr/worker.min.js', location.href).href, corePath: new URL('ocr/', location.href).href, langPath: new URL('ocr/', location.href).href,
       logger: (m) => { if (m.status === 'recognizing text') onPct(Math.round(m.progress * 100)); },
     });
-    try { return (await w.recognize(blob)).data.text; } finally { w.terminate(); }
+    try {
+      // Labels have scattered words in big fonts, which reads better as sparse text
+      if (sparse) await w.setParameters({ tessedit_pageseg_mode: '11' });
+      return (await w.recognize(blob)).data.text;
+    } finally { w.terminate(); }
   }
   const ING_LINE = /^([\d½¼¾⅓⅔⅛]|(one|two|three|half|a|an)\s+(dash|splash|pinch|barspoon|ounce|oz|cup|teaspoon|tablespoon|slice|sprig|wedge|few|handful)|(dash|dashes|splash|pinch|top|barspoon)\b)|\b(\d+(\.\d+)?\s?(oz|ml|cl)|ounces?|tsp|tbsp|teaspoons?|tablespoons?|cups?|parts?|dashes)\b/i;
   const HEADING = /^(ingredients?|method|instructions?|directions?|steps?|how to make( it)?|garnish|recipe|you('ll)? need|preparation)\s*:?$/i;
@@ -1333,7 +1394,7 @@
       const prev = $('#shotPrev'); prev.src = URL.createObjectURL(shot); prev.hidden = false;
       msg.textContent = 'Reading the screenshot… The first time takes a little longer.';
       try {
-        const p = parseRecipeText(await readScreenshot(shot, (n) => { msg.textContent = `Reading the screenshot… ${n}%`; }));
+        const p = parseRecipeText(await readImageText(shot, (n) => { msg.textContent = `Reading the screenshot… ${n}%`; }));
         const fill = (id, v) => { const el = $('#' + id); if (v && !el.value.trim()) el.value = v; };
         fill('rName', p.name); fill('rIngs', p.ings); fill('rSteps', p.steps); fill('rGarnish', p.garnish);
         const m = $('#rMethod'), all = p.steps.toLowerCase();
@@ -1362,7 +1423,7 @@
 
   // ── How-to guide ─────────────────────────────────────────────────────
   const GUIDE = [
-    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. If the live camera has trouble, tap <b>Take a photo</b> and snap the barcode up close. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
+    ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. No luck? Tap <b>Photo of the label</b> and snap the front of the bottle, or <b>Photo of the barcode</b>. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
     ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
     ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
