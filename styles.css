@@ -200,3 +200,7 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 .buy b { display: block; color: var(--gold); }
 .buy span { color: var(--muted); font-size: .85rem; }
 .check > label.row { gap: 12px; cursor: pointer; }
+
+/* My Bar categories */
+.cat-chips { padding-top: 4px; margin-bottom: 6px; flex-wrap: wrap; overflow: visible; }
+.chip .ccount { font-size: .75rem; opacity: .7; margin-left: 2px; }

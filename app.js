@@ -12,7 +12,35 @@
   const BUILTIN = window.AL_RECIPES;
   const KNOWN_BARCODES = window.AL_KNOWN_BARCODES || {};
   const LEVELS = [['full', 'Full'], ['half', 'Half'], ['low', 'Low'], ['out', 'Out']];
-  const GROUP_ORDER = ['Spirits', 'Liqueurs & Aperitifs', 'Wine', 'Mixers', 'Juices', 'Syrups', 'Bitters & Brine', 'Fresh & Pantry', 'Other'];
+  const GROUP_ORDER = ['Spirits', 'Liqueurs & Aperitifs', 'Wine', 'Beer & Cider', 'Mixers', 'Juices', 'Syrups', 'Bitters & Brine', 'Fresh & Pantry', 'Other'];
+  // My Bar categories. Each covers one or more ingredient groups.
+  const CATS = [
+    ['spirits', 'Spirits', ['Spirits']],
+    ['liqueurs', 'Liqueurs', ['Liqueurs & Aperitifs']],
+    ['wine', 'Wine', ['Wine']],
+    ['beer', 'Beer & Cider', ['Beer & Cider']],
+    ['mixers', 'Mixers & Juices', ['Mixers', 'Juices']],
+    ['syrups', 'Syrups & Bitters', ['Syrups', 'Bitters & Brine']],
+    ['garnish', 'Garnish & Fresh', ['Fresh & Pantry']],
+    ['other', 'Other', ['Other']],
+  ];
+  const CAT_GUESS = [
+    ['beer', /\b(beer|lager|ipa|stout|porter|pilsner|cider|hard seltzer|white claw|modelo|corona|michelob)\b/i],
+    ['wine', /\b(wine|prosecco|champagne|cava|ros[ée]|merlot|cabernet|chardonnay|pinot|riesling|sangria)\b/i],
+    ['liqueurs', /espresso martini|cream liqueur|baileys|rumchata/i],
+    ['mixers', /craft & pour|stirrings|\bmix(er)?\b|cream of coconut/i],
+    ['spirits', /\b(vodka|gin|rum|tequila|mezcal|whiske?y|bourbon|scotch|rye|brandy|cognac)\b/i],
+    ['liqueurs', /liqueur|schnapps|amaro|aperitif|vermouth|\bcr[eè]me de\b/i],
+    ['syrups', /syrup|bitters|grenadine|orgeat/i],
+    ['mixers', /juice|soda|tonic|ginger (beer|ale)|cola|lemonade|\bsour\b|water/i],
+    ['garnish', /olive|cherr|\blimes?\b|\blemons?\b|orange peel|mint|garnish|salt|sugar|cream|egg|espresso|coffee/i],
+  ];
+  function catOf(b) {
+    if (b.cat) return b.cat;
+    if (b.key) { const g = groupOf(b.key); const c = CATS.find((x) => x[2].includes(g)); if (c) return c[0]; }
+    const hit = CAT_GUESS.find(([, re]) => re.test(b.name || ''));
+    return hit ? hit[0] : 'other';
+  }
 
   // ── State ────────────────────────────────────────────────────────────
   const blank = () => ({ barName: 'Artemis Lounge', bottles: [], learned: {}, custom: [], menu: { title: 'Artemis Lounge', ids: [], notes: {}, printPhotos: true }, shop: [], bigText: false, favs: [], rnotes: {}, wines: [], dinner: { title: 'Dinner at Artemis Lounge', courses: [] }, zip: '' });
@@ -377,27 +405,34 @@
   }
 
   function barSwitch() {
-    return `<div class="seg" role="tablist"><button role="tab" class="${ui.barView !== 'wine' ? 'on' : ''}" data-view="bar">Bottles</button><button role="tab" class="${ui.barView === 'wine' ? 'on' : ''}" data-view="wine">Wine</button></div>`;
+    const cur = ui.barView || 'all';
+    const n = {}; state.bottles.forEach((b) => { const c = catOf(b); n[c] = (n[c] || 0) + 1; });
+    n.wine = (n.wine || 0) + state.wines.filter((w) => !w.wish && w.count > 0).length;
+    const tabs = [['all', 'All', state.bottles.length]].concat(CATS.filter(([k]) => k !== 'other' || n.other).map(([k, t]) => [k, t, n[k] || 0]));
+    return `<div class="chips cat-chips" role="tablist">${tabs.map(([k, t, c]) => `<button role="tab" class="chip ${k === cur ? 'on' : ''}" data-view="${k}">${esc(t)}${c ? ` <span class="ccount">${c}</span>` : ''}</button>`).join('')}</div>`;
   }
   function wireSwitch(v) { v.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { ui.barView = b.dataset.view; render(); })); }
 
   function renderBar(v) {
     if (ui.barView === 'wine') return renderWine(v);
+    const cur = ui.barView || 'all';
+    const shown = state.bottles.filter((b) => cur === 'all' || catOf(b) === cur);
     const groups = {};
-    state.bottles.forEach((b) => { const g = b.key ? groupOf(b.key) : 'Other'; (groups[g] = groups[g] || []).push(b); });
-    const untyped = state.bottles.filter((b) => !b.key).length;
+    shown.forEach((b) => { const c = catOf(b); (groups[c] = groups[c] || []).push(b); });
+    const untyped = shown.filter((b) => !b.key && ['spirits', 'liqueurs', 'syrups'].includes(catOf(b))).length;
+    const catName = cur === 'all' ? '' : (CATS.find((c) => c[0] === cur) || [, ''])[1];
     v.innerHTML = `${barSwitch()}
       <div class="btn-row">
         <button class="btn primary" id="scanBtn">Scan a bottle</button>
-        <button class="btn" id="addBtn">Add by name</button>
+        <button class="btn" id="addBtn">Add ${catName ? esc(catName.toLowerCase()) : 'by name'}</button>
       </div>
-      <p class="intro">Everything in your bar. Set each bottle’s level as you use it. <b>Low</b> adds it to Shop. <b>Out</b> stops recipes counting it.</p>
+      <p class="intro">${catName ? `Your ${esc(catName.toLowerCase())}.` : 'Everything in your bar. Tap a category above to narrow it down.'} Set each bottle’s level as you use it. <b>Low</b> adds it to Shop. <b>Out</b> stops recipes counting it.</p>
       <p class="hint">Using a Bluetooth barcode scanner? Tap “Scan a bottle”, then scan. The number fills in by itself.</p>
       ${untyped ? `<p class="hint">${untyped} item${untyped > 1 ? 's need' : ' needs'} a type before recipes can count ${untyped > 1 ? 'them' : 'it'}. Tap Edit.</p>` : ''}
-      ${state.bottles.length ? '' : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>More &gt; Restore</b>.</div>`}
-      ${GROUP_ORDER.filter((g) => groups[g]).map((g) => `<h3>${esc(g)} <span class="count">${groups[g].length}</span></h3><div class="list">${groups[g].sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>`).join('')}`;
+      ${state.bottles.length ? (shown.length ? '' : `<div class="empty">Nothing here yet. Tap <b>Add ${esc(catName.toLowerCase())}</b> or scan one.</div>`) : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>More &gt; Restore</b>.</div>`}
+      ${CATS.filter(([k]) => groups[k]).map(([k, t]) => `${cur === 'all' ? `<h3>${esc(t)} <span class="count">${groups[k].length}</span></h3>` : ''}<div class="list">${groups[k].sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>`).join('')}`;
     $('#scanBtn', v).onclick = () => openScanner('bar');
-    $('#addBtn', v).onclick = () => editBottle(null);
+    $('#addBtn', v).onclick = () => editBottle(null, cur !== 'all' ? { cat: cur } : null);
     wireBottleRows(v);
     wireSwitch(v);
   }
@@ -436,6 +471,7 @@
     const rack = state.wines.filter((w) => !w.wish && w.count > 0);
     const gone = state.wines.filter((w) => !w.wish && !(w.count > 0));
     const wish = state.wines.filter((w) => w.wish);
+    const barWine = state.bottles.filter((b) => catOf(b) === 'wine');
     const byType = {};
     rack.forEach((w) => { const t = w.type || 'Other'; (byType[t] = byType[t] || []).push(w); });
     const total = rack.reduce((a, w) => a + w.count, 0);
@@ -448,8 +484,10 @@
       <h3>Wines to try <span class="count">${wish.length}</span></h3>
       <p class="hint">Heard about a wine you want? Add it here with <b>Add a wine</b> and pick “Want to try”.</p>
       <div class="list">${wish.map(wineRow).join('')}</div>
-      ${gone.length ? `<h3>Finished <span class="count">${gone.length}</span></h3><div class="list">${gone.map(wineRow).join('')}</div>` : ''}`;
+      ${gone.length ? `<h3>Finished <span class="count">${gone.length}</span></h3><div class="list">${gone.map(wineRow).join('')}</div>` : ''}
+      ${barWine.length ? `<h3>Wine for cocktails <span class="count">${barWine.length}</span></h3><p class="hint">Bottles added under My Bar, with Full, Half, Low and Out levels.</p><div class="list">${barWine.sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>` : ''}`;
     wireSwitch(v);
+    wireBottleRows(v);
     $('#wScan', v).onclick = () => openScanner('wine');
     $('#wAdd', v).onclick = () => editWine(null);
     $('#wPair', v).onclick = openPairing;
@@ -535,7 +573,8 @@
   // so "Original" is never read as gin and "Ginger Beer" never counts as gin.
   const GUESS = [
     ['kahl[uú]a|coffee liqueur', 'coffee-liqueur'], ['chambord|raspberry liqueur', 'raspberry-liqueur'], ['ginger beer', 'ginger-beer'],
-    ['ginger ale', null], ['tonic', 'tonic'], ['club soda|soda water|seltzer', 'club-soda'], ['grapefruit soda|squirt|jarritos toronja', 'grapefruit-soda'],
+    ['ginger ale', 'ginger-ale'], ['hard seltzer|white claw|truly|high noon', 'hard-seltzer'], ['\\bcider\\b', 'cider'], ['\\b(beer|lager|ipa|stout|porter|pilsner|modelo|corona|michelob|heineken|stella)\\b', 'beer'],
+    ['\\bolives?\\b', 'olives'], ['maraschino cherr|cocktail cherr|luxardo cherr', 'cherries'], ['tonic', 'tonic'], ['club soda|soda water|seltzer', 'club-soda'], ['grapefruit soda|squirt|jarritos toronja', 'grapefruit-soda'],
     ['\\bcola\\b|coca-cola|coke|pepsi', 'cola'], ['lime juice', 'lime-juice'], ['lemon juice', 'lemon-juice'], ['pineapple juice', 'pineapple-juice'],
     ['white cranberry', null], ['cranberry', 'cranberry-juice'], ['orgeat', 'orgeat'], ['honey syrup', 'honey-syrup'], ['strawberry syrup', 'strawberry-syrup'],
     ['grenadine', 'grenadine'], ['simple syrup', 'simple-syrup'], ['peach pur', 'peach-puree'], ['orange bitters', 'orange-bitters'], ['angostura', 'angostura'],
@@ -563,17 +602,24 @@
       <h2>${isNew ? 'Add a bottle' : 'Edit bottle'}</h2>
       ${d.barcode ? `<p class="hint">Barcode ${esc(d.barcode)}</p>` : ''}
       <label class="field">Name<input id="bName" value="${esc(d.name)}" placeholder="e.g. Tanqueray London Dry Gin" autocomplete="off"></label>
+      <label class="field">Category<select id="bCat">${CATS.map(([k, t]) => `<option value="${k}" ${k === catOf(d) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       <label class="field">What is it? (recipes use this)<select id="bKey">${typeOptions(d.key)}</select></label>
       <label class="field">Size (optional)<input id="bSize" value="${esc(d.size)}" placeholder="750ml"></label>
       <div class="btn-row"><button class="btn primary" id="bSave">${isNew ? 'Add to My Bar' : 'Save'}</button>
       ${isNew ? '' : '<button class="btn danger" id="bDel">Remove</button>'}</div>`);
     const body = $('#sheetBody');
     const nameIn = $('#bName', body), keyIn = $('#bKey', body);
-    nameIn.addEventListener('input', () => { if (isNew && !keyIn.dataset.touched) keyIn.value = guessKey(nameIn.value); });
-    keyIn.addEventListener('change', () => { keyIn.dataset.touched = '1'; });
+    const catIn = $('#bCat', body);
+    const syncCat = () => { if (!catIn.dataset.touched) catIn.value = catOf({ name: nameIn.value, key: keyIn.value }); };
+    nameIn.addEventListener('input', () => { if (isNew && !keyIn.dataset.touched) keyIn.value = guessKey(nameIn.value); if (!(prefill && prefill.cat)) syncCat(); });
+    keyIn.addEventListener('change', () => { keyIn.dataset.touched = '1'; syncCat(); });
+    catIn.addEventListener('change', () => { catIn.dataset.touched = '1'; });
+    if (prefill && prefill.cat) catIn.dataset.touched = '1';
     if (isNew && !d.name) setTimeout(() => nameIn.focus(), 250);
     $('#bSave', body).onclick = () => {
       d.name = nameIn.value.trim(); d.key = keyIn.value || null; d.size = $('#bSize', body).value.trim();
+      // Keep the category only when it differs from what the type implies
+      const auto = catOf({ name: d.name, key: d.key }); if (catIn.value !== auto) d.cat = catIn.value; else delete d.cat;
       if (!d.name) { toast('Give it a name'); return; }
       if (isNew) { d.added = new Date().toISOString().slice(0, 10); state.bottles.push(d); }
       if (d.barcode) state.learned[d.barcode] = { name: d.name, key: d.key, size: d.size };
@@ -1146,11 +1192,12 @@
   // ── How-to guide ─────────────────────────────────────────────────────
   const GUIDE = [
     ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera, or type the barcode number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
+    ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
     ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
-    ['🍷', 'Wine', 'In <b>My Bar</b>, tap <b>Wine</b> to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
+    ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
     ['🛒', 'Shop', 'The <b>Shop</b> tab lists Low and Out bottles, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],
     ['💾', 'Keep it safe', 'Your bar is saved only in this browser on this device. Now and then, go to <b>More</b> and tap <b>Save backup file</b>. To get one-tap access, add this page to your Home Screen. On iPhone, tap Share, then <b>Add to Home Screen</b>.'],

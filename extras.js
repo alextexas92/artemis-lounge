@@ -4,6 +4,14 @@
   const ING = window.AL_INGREDIENTS;
   ING['ginger-ale'] = { label: 'Ginger Ale', group: 'Mixers' };
   ING['orange-juice'] = { label: 'Orange Juice', group: 'Juices' };
+  ING['beer'] = { label: 'Beer', group: 'Beer & Cider' };
+  ING['cider'] = { label: 'Hard Cider', group: 'Beer & Cider' };
+  ING['hard-seltzer'] = { label: 'Hard Seltzer', group: 'Beer & Cider' };
+  ING['lemons'] = { label: 'Lemons', group: 'Fresh & Pantry' };
+  ING['limes'] = { label: 'Limes', group: 'Fresh & Pantry' };
+  ING['oranges'] = { label: 'Oranges', group: 'Fresh & Pantry' };
+  ING['olives'] = { label: 'Cocktail Olives', group: 'Fresh & Pantry' };
+  ING['cherries'] = { label: 'Cocktail Cherries', group: 'Fresh & Pantry' };
 
   const i = (amt, name, keys, optional) => ({ amt, name, keys, optional: !!optional });
   const zp = (id, name, glass, method, garnish, steps, ingredients) => ({
