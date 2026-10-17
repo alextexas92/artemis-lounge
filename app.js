@@ -437,6 +437,11 @@
   }
   function wireSwitch(v) { v.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { ui.barView = b.dataset.view; render(); })); }
 
+  // My Bar order: by type (Gin, Rum, Vodka...), then by name. Bottles with no type go last.
+  function byTypeThenName(a, b) {
+    const ta = a.key ? label(a.key) : '\uffff', tb = b.key ? label(b.key) : '\uffff';
+    return ta.localeCompare(tb) || a.name.localeCompare(b.name);
+  }
   function renderBar(v) {
     if (ui.barView === 'wine') return renderWine(v);
     const cur = ui.barView || 'all';
@@ -454,7 +459,7 @@
       <p class="hint">Using a Bluetooth barcode scanner? Tap “Scan a bottle”, then scan. The number fills in by itself.</p>
       ${untyped ? `<p class="hint">${untyped} item${untyped > 1 ? 's need' : ' needs'} a type before recipes can count ${untyped > 1 ? 'them' : 'it'}. Tap Edit.</p>` : ''}
       ${state.bottles.length ? (shown.length ? '' : `<div class="empty">Nothing here yet. Tap <b>Add ${esc(catName.toLowerCase())}</b> or scan one.</div>`) : `<div class="empty">Your bar is empty. Scan or add your first bottle.<br><br>Moving from another phone? Use <b>More &gt; Restore</b>.</div>`}
-      ${CATS.filter(([k]) => groups[k]).map(([k, t]) => `${cur === 'all' ? `<h3>${esc(t)} <span class="count">${groups[k].length}</span></h3>` : ''}<div class="list">${groups[k].sort((a, b) => a.name.localeCompare(b.name)).map(bottleRow).join('')}</div>`).join('')}`;
+      ${CATS.filter(([k]) => groups[k]).map(([k, t]) => `${cur === 'all' ? `<h3>${esc(t)} <span class="count">${groups[k].length}</span></h3>` : ''}<div class="list">${groups[k].sort(byTypeThenName).map(bottleRow).join('')}</div>`).join('')}`;
     $('#scanBtn', v).onclick = () => openScanner('bar');
     $('#addBtn', v).onclick = () => editBottle(null, cur !== 'all' ? { cat: cur } : null);
     wireBottleRows(v);
@@ -1009,7 +1014,25 @@
     const s = list ? list.charAt(0).toUpperCase() + list.slice(1) : r.name;
     return how ? `${s}, ${how}.` : `${s}.`;
   }
-  function menuRecipes() { return state.menu.ids.map(recipeById).filter(Boolean); }
+  // Drinks are listed in the order they're served: bubbles to start, then
+  // cocktails, then stirred and strong, then after-dinner drinks. Mocktails go last.
+  const SERVE = ['To start', 'Cocktails', 'Stirred & strong', 'After dinner', 'Zero proof'];
+  function serveStep(r) {
+    if (r.zeroProof) return 4;
+    const c = (r.category || '').toLowerCase();
+    if (c === 'sparkling') return 0;
+    if (c === 'spirit-forward') return 2;
+    if (c === 'dessert') return 3;
+    return 1;
+  }
+  function menuRecipes() {
+    return state.menu.ids.map(recipeById).filter(Boolean).map((r, i) => ({ r, i })).sort((a, b) => serveStep(a.r) - serveStep(b.r) || a.i - b.i).map((x) => x.r);
+  }
+  // Adds a heading wherever the serving step changes
+  function withHeadings(items, row, head) {
+    let last = -1;
+    return items.map((r) => { const st = serveStep(r); const h = st !== last ? head(SERVE[st]) : ''; last = st; return h + row(r); }).join('');
+  }
 
   function menuSwitch() {
     return `<div class="seg" role="tablist"><button role="tab" class="${ui.menuView !== 'dinner' ? 'on' : ''}" data-mview="drinks">Drinks menu</button><button role="tab" class="${ui.menuView === 'dinner' ? 'on' : ''}" data-mview="dinner">Dinner pairing</button></div>`;
@@ -1028,11 +1051,11 @@
       </ol>
       <label class="field">Menu title<input id="mTitle" value="${esc(state.menu.title)}"></label>
       <button class="btn block" id="pick">Choose drinks (${items.length})</button>
-      ${items.length ? `<div>${items.map((r) => {
+      ${items.length ? `<p class="hint">Drinks are listed in the order they’re served.</p><div>${withHeadings(items, (r) => {
         const c = check(r, have);
         return `<div class="menu-item"><button class="card" data-recipe="${esc(r.id)}"><div class="title">${esc(r.name)}</div>${c.ok ? '' : `<div class="miss">Need: ${esc(c.missing.map((m) => m.keys.length ? label(m.keys[0]) : m.name).join(', '))}</div>`}</button>
           <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`;
-      }).join('')}</div>
+      }, (h) => `<h3>${esc(h)}</h3>`)}</div>
       <div class="btn-row"><button class="btn primary" id="shareMenu">Guest link &amp; QR</button><button class="btn" id="printMenu">Print menu</button></div>
       ${items.some((r) => photoURL[r.id]) ? `<label class="check"><input type="checkbox" id="printPhotos" ${state.menu.printPhotos ? 'checked' : ''}><span class="grow">Show drink photos on the printed menu</span></label>` : ''}
       <button class="btn small danger" id="clearMenu">Clear menu</button>` : '<div class="empty">No drinks on the menu yet.</div>'}`;
@@ -1063,7 +1086,7 @@
 
   // The guest menu travels inside the link itself, so guests need no account.
   async function menuLink() {
-    const data = { t: state.menu.title, d: menuRecipes().map((r) => (r.zeroProof ? [r.name, guestLine(r), 1] : [r.name, guestLine(r)])) };
+    const data = { t: state.menu.title, s: SERVE, d: menuRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0, serveStep(r)]) };
     const json = JSON.stringify(data);
     let bytes = new TextEncoder().encode(json), prefix = 'j';
     if ('CompressionStream' in window) {
@@ -1096,8 +1119,8 @@
     const url = await menuLink();
     const area = $('#printArea');
     area.innerHTML = `<div class="pmenu"><h1>${esc(state.menu.title)}</h1><div class="orn">✦ ✦ ✦</div>
-      ${menuRecipes().map((r) => `<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`).join('')}
-      <div class="foot">Scan to see this menu on your phone<div id="pqr" style="display:inline-block"></div></div></div>`;
+      ${withHeadings(menuRecipes(), (r) => `<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}
+      <div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     await Promise.all([...area.querySelectorAll('img.pphoto')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
     setTimeout(() => window.print(), 300);
@@ -1141,8 +1164,14 @@
     return o;
   }
 
+  // Courses always show in the order they're served, whatever order they were added
+  function sortCourses(D) {
+    const at = (c) => { const k = window.AL_COURSES.indexOf(c.course); return k < 0 ? 99 : k; };
+    D.courses = D.courses.map((c, i) => ({ c, i })).sort((a, b) => at(a.c) - at(b.c) || a.i - b.i).map((x) => x.c);
+  }
   function renderDinner(v) {
     const D = state.dinner;
+    sortCourses(D);
     const used = new Set(D.courses.map((c) => c.course));
     v.innerHTML = `${menuSwitch()}
       <h2>Dinner pairing</h2>
@@ -1163,7 +1192,7 @@
     $('#dTitle', v).addEventListener('change', (e) => { D.title = e.target.value.trim() || 'Dinner at Artemis Lounge'; save(); });
     const sel = $('#dCourse', v);
     const next = window.AL_COURSES.find((n) => !used.has(n)); if (next) sel.value = next;
-    $('#dAdd', v).onclick = () => { D.courses.push({ id: uid(), course: sel.value, dish: '', style: window.AL_COURSE_DEFAULT[sel.value] }); save(); render(); };
+    $('#dAdd', v).onclick = () => { D.courses.push({ id: uid(), course: sel.value, dish: '', style: window.AL_COURSE_DEFAULT[sel.value] }); sortCourses(D); save(); render(); };
     const find = (el) => D.courses.find((c) => c.id === el.closest('[data-course]').dataset.course);
     v.querySelectorAll('[data-dish]').forEach((inp) => inp.addEventListener('change', () => {
       const c = find(inp); c.dish = inp.value.trim();
@@ -1269,7 +1298,7 @@
     const area = $('#printArea');
     area.innerHTML = `<div class="pmenu"><h1>${esc(d.t)}</h1><div class="orn">✦ ✦ ✦</div>
       ${d.c.map(([course, dish, pours]) => `<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
-      <div class="foot">Scan to see this menu on your phone<div id="pqr" style="display:inline-block"></div></div></div>`;
+      <div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     setTimeout(() => window.print(), 300);
   }
@@ -1356,7 +1385,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '21';
+  const APP_VERSION = '22';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
