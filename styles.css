@@ -239,3 +239,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; overscroll-behavi
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; overscroll-behavior: none; }
 input, textarea, select { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; font-size: max(16px, 1em); }
 img, svg { -webkit-user-drag: none; user-drag: none; }
+[hidden]{display:none !important}
+#clearMenu { margin-top: 18px; }
+#packBtn { margin-top: 10px; }
+/* One printed page: measured off screen at page width, then zoomed to fit */
+@page { margin: 0.4in; }
+#printArea.measure { display: block !important; position: absolute; left: -10000px; top: 0; width: 7.4in; background: #fff; }
+@media print { .pmenu { padding: 0; } .pmenu, .pmenu .pframe { break-inside: avoid; page-break-inside: avoid; } }

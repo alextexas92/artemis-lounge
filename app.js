@@ -615,12 +615,17 @@
       ${P.apps.map(([app, what, wines]) => `<div class="pair"><div class="name">${esc(app)}</div><p>${esc(what)}</p><div class="gold">${esc(wines)}</div></div>`).join('')}`);
   }
 
-  function typeOptions(selected) {
-    const byGroup = {};
-    Object.entries(ING).forEach(([k, v]) => { if (!PANTRY.has(k)) (byGroup[v.group] = byGroup[v.group] || []).push([k, v.label]); });
-    return `<option value="">Not used in recipes</option>` + GROUP_ORDER.filter((g) => byGroup[g]).map((g) =>
-      `<optgroup label="${esc(g)}">${byGroup[g].sort((a, b) => a[1].localeCompare(b[1])).map(([k, l]) => `<option value="${k}" ${k === selected ? 'selected' : ''}>${esc(l)}</option>`).join('')}</optgroup>`).join('') +
-      `<option value="__new">＋ Not listed? Name it yourself</option>`;
+  // Suggestions for the "What is it?" box. She can pick one or type her own.
+  function typeList() {
+    return `<datalist id="typeList">${Object.entries(ING).filter(([k]) => !PANTRY.has(k)).map(([, v]) => v.label)
+      .sort((a, b) => a.localeCompare(b)).map((l) => `<option value="${esc(l)}"></option>`).join('')}</datalist>`;
+  }
+  // Blank means not used in recipes. A known type gives its key. Anything else is a new type.
+  function keyFromText(t) {
+    const v = (t || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!v) return '';
+    const hit = Object.entries(ING).find(([k, x]) => !PANTRY.has(k) && x.label.toLowerCase() === v);
+    return hit ? hit[0] : '__new';
   }
   // Make a new type from a name she typed, then link any of her recipes that use it
   function addType(name, cat) {
@@ -680,8 +685,7 @@
       ${isNew && !d.name ? `<button class="btn block" id="bLabel">📷 Fill in from a photo of the label</button><input type="file" id="bLabelIn" accept="image/*" capture="environment" hidden><p class="hint" id="scanMsg"></p>` : ''}
       <label class="field">Name<input id="bName" value="${esc(d.name)}" placeholder="e.g. Tanqueray London Dry Gin" autocomplete="off"></label>
       <label class="field">Category<select id="bCat">${CATS.map(([k, t]) => `<option value="${k}" ${k === catOf(d) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
-      <label class="field">What is it? (recipes use this)<select id="bKey">${typeOptions(d.key)}</select></label>
-      <label class="field" id="bNewWrap" hidden>Name the type, like Peppermint Vodka or Mezcal. Any recipe you add later that uses it will find this bottle.<input id="bNewType" autocomplete="off"></label>
+      <label class="field">What is it? Pick from the list or type your own, like Peppermint Vodka. Recipes use this to find the bottle.<input id="bKey" list="typeList" value="${esc(d.key ? label(d.key) : '')}" placeholder="e.g. Gin, or leave blank" autocomplete="off">${typeList()}</label>
       <label class="field">Size (optional)<input id="bSize" value="${esc(d.size)}" placeholder="750ml"></label>
       <div class="field">How many bottles<div class="qty big" role="group" aria-label="Number of bottles"><button type="button" id="bQm" aria-label="One fewer">−</button><input id="bQty" type="number" inputmode="numeric" min="1" value="${d.qty || 1}"><button type="button" id="bQp" aria-label="One more">+</button></div></div>
       <div class="btn-row"><button class="btn primary" id="bSave">${isNew ? 'Add to My Bar' : 'Save'}</button>
@@ -691,13 +695,10 @@
     const catIn = $('#bCat', body);
     const bl = $('#bLabel', body);
     if (bl) { bl.onclick = () => $('#bLabelIn', body).click(); $('#bLabelIn', body).addEventListener('change', (e) => { const f = e.target.files[0]; if (f) { scanMode = 'bar'; scanLabel(f, { barcode: d.barcode, size: $('#bSize', body).value.trim() }); } }); }
-    const syncCat = () => { if (!catIn.dataset.touched) catIn.value = catOf({ name: nameIn.value, key: keyIn.value }); };
-    nameIn.addEventListener('input', () => { if (isNew && !keyIn.dataset.touched) keyIn.value = guessKey(nameIn.value); if (!(prefill && prefill.cat)) syncCat(); });
-    keyIn.addEventListener('change', () => {
-      keyIn.dataset.touched = '1';
-      const nw = keyIn.value === '__new'; $('#bNewWrap', body).hidden = !nw;
-      if (nw) setTimeout(() => $('#bNewType', body).focus(), 50); else syncCat();
-    });
+    const curKey = () => { const k = keyFromText(keyIn.value); return k === '__new' ? '' : k; };
+    const syncCat = () => { if (!catIn.dataset.touched) catIn.value = catOf({ name: nameIn.value, key: curKey() }); };
+    nameIn.addEventListener('input', () => { if (isNew && !keyIn.dataset.touched) { const g = guessKey(nameIn.value); keyIn.value = g ? label(g) : ''; } if (!(prefill && prefill.cat)) syncCat(); });
+    keyIn.addEventListener('input', () => { keyIn.dataset.touched = '1'; syncCat(); });
     catIn.addEventListener('change', () => { catIn.dataset.touched = '1'; });
     if (prefill && prefill.cat) catIn.dataset.touched = '1';
     if (isNew && !d.name) setTimeout(() => nameIn.focus(), 250);
@@ -705,12 +706,10 @@
     $('#bQm', body).onclick = () => { qIn.value = Math.max(1, (parseInt(qIn.value, 10) || 1) - 1); };
     $('#bQp', body).onclick = () => { qIn.value = (parseInt(qIn.value, 10) || 1) + 1; };
     $('#bSave', body).onclick = () => {
-      d.name = nameIn.value.trim(); d.key = keyIn.value || null; d.size = $('#bSize', body).value.trim();
-      if (d.key === '__new') {
-        const t = $('#bNewType', body).value.trim();
-        if (!t) { toast('Name the type, or pick one from the list'); $('#bNewType', body).focus(); return; }
-        d.key = addType(t, catIn.value);
-      }
+      d.name = nameIn.value.trim(); d.size = $('#bSize', body).value.trim();
+      if (!d.name) { toast('Give it a name'); return; }
+      d.key = keyFromText(keyIn.value) || null;
+      if (d.key === '__new') d.key = addType(keyIn.value, catIn.value);
       d.qty = Math.max(1, parseInt(qIn.value, 10) || 1); if (d.qty === 1) delete d.qty;
       // Keep the category only when it differs from what the type implies
       const auto = catOf({ name: d.name, key: d.key }); if (catIn.value !== auto) d.cat = catIn.value; else delete d.cat;
@@ -1282,15 +1281,41 @@
   const P_FAN = '<svg class="fan" viewBox="0 0 120 60" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2"><line x1="60" y1="56" x2="106.4" y2="43.6"/><line x1="60" y1="56" x2="101.6" y2="32.0"/><line x1="60" y1="56" x2="93.9" y2="22.1"/><line x1="60" y1="56" x2="84.0" y2="14.4"/><line x1="60" y1="56" x2="72.4" y2="9.6"/><line x1="60" y1="56" x2="60.0" y2="8.0"/><line x1="60" y1="56" x2="47.6" y2="9.6"/><line x1="60" y1="56" x2="36.0" y2="14.4"/><line x1="60" y1="56" x2="26.1" y2="22.1"/><line x1="60" y1="56" x2="18.4" y2="32.0"/><line x1="60" y1="56" x2="13.6" y2="43.6"/><path d="M8 56 A52 52 0 0 1 112 56"/><path d="M24 56 A36 36 0 0 1 96 56"/></g><circle cx="60" cy="56" r="4" fill="currentColor"/></svg>';
   const P_RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
   const P_DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
+  // Phones block print() unless it runs right on a tap. The menu takes a moment to
+  // build (QR code, photos), so a second tap starts the print.
+  // Shrink the printed menu to fit one page. Sized for both Letter and A4 with 0.4in margins.
+  function fitOnePage() {
+    const area = $('#printArea'), m = area.querySelector('.pmenu');
+    if (!m) return;
+    m.style.zoom = '';
+    area.classList.add('measure');
+    const h = m.scrollHeight, w = m.scrollWidth;
+    area.classList.remove('measure');
+    const z = Math.min(1, (10.1 * 96) / h, (7.4 * 96) / w);
+    if (z < 1) m.style.zoom = String(Math.floor(z * 100) / 100);
+  }
+  function readyToPrint() {
+    fitOnePage();
+    openSheet(`<h2>Your menu is ready</h2><p class="hint">Tap Print, then choose a printer or Save as PDF.</p>
+      <div class="btn-row"><button class="btn primary" id="doPrint">🖨️ Print</button></div>`);
+    $('#doPrint').onclick = () => { closeSheet(); window.print(); };
+  }
+  // Dinner courses that have a dish go at the bottom of the printed drinks menu
+  function foodForPrint() {
+    const food = state.dinner && state.dinner.courses ? dinnerData().c.filter(([, dish]) => dish && dish.trim()) : [];
+    if (!food.length) return '';
+    return `${P_RULE}<div class="psec">Dinner</div>` + food.map(([course, dish, pours], i) => `${i ? P_DOT : ''}<div class="drink"><span class="pcourse">${esc(course)}</span><b>${esc(dish)}</b>${pours.length ? `<span>${esc(pours.join('  ·  '))}</span>` : ''}</div>`).join('');
+  }
   async function printMenu() {
     const url = await menuLink();
     const area = $('#printArea');
     area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<h1>${esc(state.menu.title)}</h1>${P_RULE}
       ${withHeadings(menuRecipes(), (r, first) => `${first ? '' : P_DOT}<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}
+      ${foodForPrint()}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     await Promise.all([...area.querySelectorAll('img.pphoto')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
-    setTimeout(() => window.print(), 300);
+    readyToPrint();
   }
 
   // ── Dinner pairing ───────────────────────────────────────────────────
@@ -1466,7 +1491,7 @@
       ${d.c.map(([course, dish, pours], i) => `${i ? P_DOT : ''}<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
       ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
-    setTimeout(() => window.print(), 300);
+    readyToPrint();
   }
 
   // ── Where to buy ─────────────────────────────────────────────────────
@@ -1551,7 +1576,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '28';
+  const APP_VERSION = '29';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
