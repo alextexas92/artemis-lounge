@@ -1307,7 +1307,7 @@
     const url = await menuLink();
     openSheet(`<h2>Guest menu</h2><p class="hint">Guests scan this with their phone camera. No app or account needed.</p>
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
-      <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Preview</a></div>`);
+      <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
     try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
     $('#sendLink').onclick = () => shareText(state.menu.title, `${state.menu.title}: tonight’s cocktail menu\n${url}`);
   }
@@ -1598,7 +1598,7 @@
     const url = await encodeMenu(dinnerData());
     openSheet(`<h2>Dinner menu</h2><p class="hint">Guests scan this with their phone camera to see each course and what’s poured with it.</p>
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
-      <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url)}" target="_blank" rel="noopener">Preview</a></div>`);
+      <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
     try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
     $('#sendLink').onclick = () => shareText(state.dinner.title, `${state.dinner.title}\n${url}`);
   }
@@ -1695,7 +1695,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '35';
+  const APP_VERSION = '36';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');

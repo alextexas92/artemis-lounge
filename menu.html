@@ -14,6 +14,7 @@
   main { max-width:560px; margin:0 auto; padding:calc(36px + env(safe-area-inset-top)) 20px 60px; text-align:center; }
   h1 { font-family:"Cormorant Garamond",Georgia,serif; color:var(--gold); font-size:2.4rem; font-weight:600; letter-spacing:.06em; margin:0; }
   .orn { color:var(--gold); opacity:.7; margin:6px 0 26px; letter-spacing:.4em; }
+  .back { position:sticky; top:0; z-index:5; display:block; margin:0 auto; padding:calc(10px + env(safe-area-inset-top)) 16px 10px; width:100%; background:var(--bg, #1b1020); color:var(--gold); border:0; border-bottom:1px solid var(--line); font:inherit; font-size:1rem; text-align:left; cursor:pointer; }
   .hint { color:var(--muted); font-size:.9rem; margin:0 0 20px; }
   button.drink { display:block; width:100%; background:none; border:0; border-top:1px solid var(--line); color:inherit; padding:18px 6px; cursor:pointer; text-align:center; font:inherit; }
   button.drink:last-of-type { border-bottom:1px solid var(--line); }
@@ -55,6 +56,7 @@
 </style>
 </head>
 <body>
+<button class="back" id="backApp" hidden>‹ Back to my app</button>
 <main id="m"><p class="err">Loading menu…</p></main>
 <div class="pick" id="pick" hidden><div><span class="hint">Your pick</span><b id="pickName"></b><p class="hint">Show this to your host.</p>
   <button class="btn" id="tell">Text my pick</button><button class="btn ghost" id="back">Back to menu</button></div></div>
@@ -66,6 +68,11 @@
   const RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
   const DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
   try {
+    // Only the host's own preview gets a way back. Guests who scan the QR never see it.
+    if (new URLSearchParams(location.search).has('preview')) {
+      const bk = document.getElementById('backApp'); bk.hidden = false;
+      bk.onclick = () => { if (history.length > 1) history.back(); else location.href = './'; };
+    }
     const raw = location.hash.slice(1);
     const kind = raw[0];
     const b64 = raw.slice(1).replace(/-/g, '+').replace(/_/g, '/');
