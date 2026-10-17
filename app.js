@@ -472,6 +472,15 @@
 
   // ── Wine ─────────────────────────────────────────────────────────────
   const WINE_TYPES = ['Red', 'White', 'Rosé', 'Sparkling', 'Dessert', 'Other'];
+  // Grapes and styles offered when adding a wine. Picking one also sets the wine type.
+  const VARIETALS = [['Cabernet Sauvignon', 'Red'], ['Merlot', 'Red'], ['Pinot Noir', 'Red'], ['Malbec', 'Red'], ['Syrah', 'Red'], ['Shiraz', 'Red'], ['Zinfandel', 'Red'], ['Tempranillo', 'Red'], ['Sangiovese', 'Red'], ['Chianti', 'Red'], ['Grenache', 'Red'], ['Gamay', 'Red'], ['Barbera', 'Red'], ['Red Blend', 'Red'],
+    ['Chardonnay', 'White'], ['Sauvignon Blanc', 'White'], ['Pinot Grigio', 'White'], ['Riesling', 'White'], ['Moscato', 'Dessert'], ['Albariño', 'White'], ['Grüner Veltliner', 'White'], ['Chenin Blanc', 'White'], ['Viognier', 'White'], ['Gewürztraminer', 'White'], ['White Blend', 'White'],
+    ['Rosé', 'Rosé'], ['Prosecco', 'Sparkling'], ['Champagne', 'Sparkling'], ['Cava', 'Sparkling'], ['Crémant', 'Sparkling'], ['Lambrusco', 'Sparkling'], ['Port', 'Dessert'], ['Sauternes', 'Dessert'], ['Late Harvest', 'Dessert'], ['Ice Wine', 'Dessert'], ['Sherry', 'Dessert']];
+  const plain = (t) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function guessGrape(name) {
+    const n = plain(name || '');
+    return (VARIETALS.find(([g]) => n.includes(plain(g))) || [''])[0];
+  }
   const WINE_GUESS = [
     ['prosecco|champagne|cava|cr[ée]mant|sparkling|brut|spumante', 'Sparkling'],
     ['ros[ée]\\b', 'Rosé'],
@@ -540,6 +549,7 @@
   function editWine(w, prefill) {
     const isNew = !w;
     const d = w || Object.assign({ id: uid(), name: '', type: '', grape: '', region: '', vintage: '', count: 1, rating: 0, pair: '', notes: '', where: '', barcode: '', wish: false }, prefill || {});
+    if (!d.grape) d.grape = guessGrape(d.name);
     if (isNew && !d.type) d.type = guessWineType(d.name);
     openSheet(`
       <h2>${isNew ? 'Add a wine' : 'Edit wine'}</h2>
@@ -547,7 +557,8 @@
       <div class="seg"><button class="${d.wish ? '' : 'on'}" data-wish="0">In my rack</button><button class="${d.wish ? 'on' : ''}" data-wish="1">Want to try</button></div>
       <label class="field">Name<input id="wName" value="${esc(d.name)}" placeholder="e.g. Kirkland Asolo Prosecco Superiore" autocomplete="off"></label>
       <label class="field">Type<select id="wType"><option value="">Choose</option>${WINE_TYPES.map((t) => `<option ${t === d.type ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      <label class="field">Grape (optional)<input id="wGrape" value="${esc(d.grape)}" placeholder="Cabernet Sauvignon"></label>
+      <label class="field">Grape or style, like Moscato, Riesling or Pinot Noir. This makes dinner pairing pick from your rack.<input id="wGrape" list="grapeList" value="${esc(d.grape)}" placeholder="Pick or type one" autocomplete="off"></label>
+      <datalist id="grapeList">${VARIETALS.map(([g]) => `<option value="${esc(g)}">`).join('')}</datalist>
       <div class="row"><label class="field grow">Region (optional)<input id="wRegion" value="${esc(d.region)}" placeholder="Rioja, Spain"></label>
       <label class="field" style="flex:0 0 7em">Vintage<input id="wVintage" inputmode="numeric" value="${esc(d.vintage)}" placeholder="2021"></label></div>
       <label class="field" id="wCountF" ${d.wish ? 'hidden' : ''}>How many bottles<input id="wCount" type="number" min="0" inputmode="numeric" value="${d.count}"></label>
@@ -558,7 +569,14 @@
       <div class="btn-row"><button class="btn primary" id="wSave">${isNew ? 'Save wine' : 'Save'}</button>${isNew ? '' : '<button class="btn danger" id="wDel">Remove</button>'}</div>`);
     const body = $('#sheetBody');
     const typeIn = $('#wType', body), nameIn = $('#wName', body);
-    nameIn.addEventListener('input', () => { if (isNew && !typeIn.dataset.touched) typeIn.value = guessWineType(nameIn.value); });
+    const grapeIn = $('#wGrape', body);
+    const typeFromGrape = () => { const v = VARIETALS.find(([g]) => plain(g) === plain(grapeIn.value.trim())); if (v && !typeIn.dataset.touched) typeIn.value = v[1]; };
+    nameIn.addEventListener('input', () => {
+      if (isNew && !grapeIn.dataset.touched) grapeIn.value = guessGrape(nameIn.value);
+      if (isNew && !typeIn.dataset.touched) typeIn.value = guessWineType(nameIn.value) || typeIn.value;
+      typeFromGrape();
+    });
+    grapeIn.addEventListener('input', () => { grapeIn.dataset.touched = '1'; typeFromGrape(); });
     typeIn.addEventListener('change', () => { typeIn.dataset.touched = '1'; });
     let wish = !!d.wish, rating = d.rating || 0;
     body.querySelectorAll('[data-wish]').forEach((b) => b.addEventListener('click', () => {
@@ -1179,7 +1197,7 @@
   function rackMatches(st) {
     const grapes = st.grapes.map((g) => g.toLowerCase());
     const rack = state.wines.filter((w) => !w.wish && w.count > 0);
-    const byGrape = rack.filter((w) => grapes.some((g) => `${w.name} ${w.grape} ${w.region}`.toLowerCase().includes(g)));
+    const byGrape = rack.filter((w) => grapes.some((g) => plain(`${w.name} ${w.grape} ${w.region}`).includes(plain(g))));
     const byType = rack.filter((w) => !byGrape.includes(w) && st.types[0] === w.type);
     return byGrape.concat(byType).slice(0, 4);
   }
@@ -1205,14 +1223,13 @@
     return o;
   }
 
-  // Courses always show in the order they're served, whatever order they were added
+  // A new course slots in where it's served. The arrows can still move courses by hand.
   function sortCourses(D) {
     const at = (c) => { const k = window.AL_COURSES.indexOf(c.course); return k < 0 ? 99 : k; };
     D.courses = D.courses.map((c, i) => ({ c, i })).sort((a, b) => at(a.c) - at(b.c) || a.i - b.i).map((x) => x.c);
   }
   function renderDinner(v) {
     const D = state.dinner;
-    sortCourses(D);
     const used = new Set(D.courses.map((c) => c.course));
     v.innerHTML = `${menuSwitch()}
       <h2>Dinner pairing</h2>
@@ -1426,7 +1443,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '24';
+  const APP_VERSION = '25';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');

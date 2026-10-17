@@ -112,7 +112,7 @@ window.AL_FOOD_STYLES = {
     grapes: ['Cabernet Sauvignon', 'Syrah', 'Malbec', 'Châteauneuf', 'Shiraz'], types: ['Red'], why: 'Structured reds can stand up to bold, deep flavors.',
     drinks: ['old-fashioned', 'boulevardier', 'negroni'], neat: ['bourbon', 'rye'], zp: 'zp-mule' },
   spicy: { label: 'Spicy', match: 'spicy|curry|thai|szechuan|sichuan|jalape|chorizo|buffalo|hot sauce|cajun|chili|taco|enchilada|mole',
-    grapes: ['Riesling', 'Gewürztraminer', 'Gamay', 'Grenache'], types: ['White', 'Red'], why: 'Off-dry whites cool things down. Juicy reds keep the peace.',
+    grapes: ['Riesling', 'Moscato', 'Gewürztraminer', 'Gamay', 'Grenache'], types: ['White', 'Red'], why: 'Off-dry whites cool things down. Juicy reds keep the peace.',
     drinks: ['margarita', 'paloma', 'moscow-mule', 'dark-stormy'], zp: 'zp-paloma' },
   smoky: { label: 'Grilled or smoky BBQ', match: 'grill|bbq|barbecue|smoked|smoky|char|ribs|pulled',
     grapes: ['Zinfandel', 'Malbec', 'Syrah', 'Shiraz'], types: ['Red'], why: 'Ripe, fruity reds stand up to smoke and char.',
