@@ -367,7 +367,7 @@
     root.querySelectorAll('[data-bottle]').forEach((el) => {
       const b = state.bottles.find((x) => x.id === el.dataset.bottle);
       el.querySelectorAll('[data-level]').forEach((btn) => btn.addEventListener('click', () => {
-        b.level = btn.dataset.level; save();
+        b.level = btn.dataset.level; delete b.noShop; save();
         if (b.level === 'low' || b.level === 'out') toast(`${b.name} is on your Shop list`);
         after ? after() : render();
       }));
@@ -1022,24 +1022,25 @@
   }
   function renderShop(v) {
     const have = stockedKeys();
-    const low = state.bottles.filter((b) => b.level === 'low' || b.level === 'out');
+    const low = state.bottles.filter((b) => (b.level === 'low' || b.level === 'out') && !b.noShop);
     // Which single missing ingredient unlocks the most drinks?
     const unlock = {};
     allRecipes().forEach((r) => {
       const c = check(r, have);
       if (c.missing.length === 1 && c.missing[0].keys.length) { const k = c.missing[0].keys[0]; (unlock[k] = unlock[k] || []).push(r.name); }
     });
-    const ideas = Object.entries(unlock).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
+    const hidden = state.hideIdeas || [];
+    const ideas = Object.entries(unlock).filter(([k]) => !hidden.includes(k)).sort((a, b) => b[1].length - a[1].length).slice(0, 10);
     v.innerHTML = `
       <h2>Shopping list</h2>
-      <p class="intro">Bottles you marked Low or Out, your own items, and the purchases that would unlock the most drinks. Tap 📍 to find a store near you.</p>
+      <p class="intro">Bottles you marked Low or Out, your own items, and the purchases that would unlock the most drinks. Tap 📍 to find a store near you, or ✕ to take something off the list.</p>
       <h3>Running low <span class="count">${low.length}</span></h3>
-      ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : 'low'}</span></span><button class="btn small" data-buy="${esc(b.name)}" aria-label="Find ${esc(b.name)} nearby">📍</button><button class="btn small" data-restock="${esc(b.id)}">Bought it</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
+      ${low.length ? low.map((b) => `<div class="check"><span class="grow">${esc(b.name)} <span class="pill">${b.level === 'out' ? 'out' : 'low'}</span></span><button class="btn small" data-buy="${esc(b.name)}" aria-label="Find ${esc(b.name)} nearby">📍</button><button class="btn small" data-restock="${esc(b.id)}">Bought it</button><button class="btn small danger" data-unlow="${esc(b.id)}" aria-label="Remove ${esc(b.name)} from the list">✕</button></div>`).join('') : '<p class="hint">Nothing marked Low or Out.</p>'}
       <h3>My list</h3>
       <div class="row"><input class="search grow" id="shopIn" placeholder="Add an item"><button class="btn" id="shopAdd">Add</button></div>
-      ${state.shop.map((s) => `<div class="check ${s.done ? 'done' : ''}"><label class="row grow"><input type="checkbox" data-shop="${esc(s.id)}" ${s.done ? 'checked' : ''}><span class="grow">${esc(s.name)}</span></label>${s.done ? '' : `<button class="btn small" data-buy="${esc(s.name)}" aria-label="Find ${esc(s.name)} nearby">📍</button>`}</div>`).join('')}
+      ${state.shop.map((s) => `<div class="check ${s.done ? 'done' : ''}"><label class="row grow"><input type="checkbox" data-shop="${esc(s.id)}" ${s.done ? 'checked' : ''}><span class="grow">${esc(s.name)}</span></label>${s.done ? '' : `<button class="btn small" data-buy="${esc(s.name)}" aria-label="Find ${esc(s.name)} nearby">📍</button>`}<button class="btn small danger" data-sdel="${esc(s.id)}" aria-label="Delete ${esc(s.name)}">✕</button></div>`).join('')}
       ${state.shop.some((s) => s.done) ? '<button class="btn small" id="clearDone">Clear checked items</button>' : ''}
-      ${ideas.length ? `<h3>Buy one, unlock more</h3>${ideas.map(([k, names]) => `<div class="check"><span class="grow"><b>${esc(label(k))}</b><br><span class="hint">${esc(names.join(', '))}</span></span><button class="btn small" data-idea="${k}">+ List</button></div>`).join('')}` : ''}
+      ${ideas.length ? `<h3>Buy one, unlock more</h3>${ideas.map(([k, names]) => `<div class="check"><span class="grow"><b>${esc(label(k))}</b><br><span class="hint">${esc(names.join(', '))}</span></span><button class="btn small" data-idea="${k}">+ List</button><button class="btn small danger" data-hideidea="${k}" aria-label="Hide this idea">✕</button></div>`).join('')}` : ''}
       <div class="btn-row"><button class="btn" id="shareList">Share list</button></div>`;
     v.querySelectorAll('[data-restock]').forEach((b) => b.addEventListener('click', () => { state.bottles.find((x) => x.id === b.dataset.restock).level = 'full'; save(); render(); toast('Marked Full'); }));
     const add = () => { const i = $('#shopIn', v); if (i.value.trim()) { addShop(i.value.trim(), guessKey(i.value) || null); save(); render(); } };
@@ -1054,6 +1055,9 @@
     }));
     v.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => openBuy(b.dataset.buy)));
     const cd = $('#clearDone', v); if (cd) cd.onclick = () => { state.shop = state.shop.filter((s) => !s.done); save(); render(); };
+    v.querySelectorAll('[data-sdel]').forEach((b) => b.addEventListener('click', () => { state.shop = state.shop.filter((x) => x.id !== b.dataset.sdel); save(); render(); toast('Deleted'); }));
+    v.querySelectorAll('[data-unlow]').forEach((b) => b.addEventListener('click', () => { const x = state.bottles.find((y) => y.id === b.dataset.unlow); x.noShop = true; save(); render(); toast(`${x.name} removed from the list`); }));
+    v.querySelectorAll('[data-hideidea]').forEach((b) => b.addEventListener('click', () => { state.hideIdeas = (state.hideIdeas || []).concat(b.dataset.hideidea); save(); render(); }));
     v.querySelectorAll('[data-idea]').forEach((b) => b.addEventListener('click', () => { addShop(label(b.dataset.idea), b.dataset.idea); save(); render(); toast('Added'); }));
     $('#shareList', v).onclick = () => {
       const lines = low.map((b) => '• ' + b.name).concat(state.shop.filter((s) => !s.done).map((s) => '• ' + s.name));
