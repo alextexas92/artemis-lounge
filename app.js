@@ -11,7 +11,7 @@
   const SUBS = window.AL_SUBS;
   const BUILTIN = window.AL_RECIPES;
   const KNOWN_BARCODES = window.AL_KNOWN_BARCODES || {};
-  const LEVELS = [['full', 'Full'], ['half', 'Half'], ['low', 'Low'], ['out', 'Out']];
+  const LEVELS = [['full', 'Full'], ['three', '¾'], ['half', 'Half'], ['low', 'Low'], ['out', 'Out']];
   const GROUP_ORDER = ['Spirits', 'Liqueurs & Aperitifs', 'Wine', 'Beer & Cider', 'Mixers', 'Juices', 'Syrups', 'Bitters & Brine', 'Fresh & Pantry', 'Other'];
   // My Bar categories. Each covers one or more ingredient groups.
   const CATS = [
@@ -392,6 +392,7 @@
     const typeTxt = b.key ? label(b.key) : '<span class="warn">Pick a type so recipes can use it</span>';
     return `<div class="bottle" data-bottle="${esc(b.id)}">
       <div class="row"><div class="grow"><div class="name">${esc(b.name)}</div><div class="meta">${typeTxt}${b.size ? ' · ' + esc(b.size) : ''}</div></div>
+      <div class="qty" role="group" aria-label="Number of bottles"><button data-qty="-1" aria-label="One fewer bottle">−</button><span>${b.qty || 1}</span><button data-qty="1" aria-label="One more bottle">+</button></div>
       <button class="btn small" data-edit="${esc(b.id)}" aria-label="Edit ${esc(b.name)}">Edit</button></div>
       <div class="levels" role="group" aria-label="Level">${LEVELS.map(([k, t]) => `<button class="${k} ${b.level === k ? 'on' : ''}" data-level="${k}">${t}</button>`).join('')}</div>
     </div>`;
@@ -400,9 +401,21 @@
     root.querySelectorAll('[data-bottle]').forEach((el) => {
       const b = state.bottles.find((x) => x.id === el.dataset.bottle);
       el.querySelectorAll('[data-level]').forEach((btn) => btn.addEventListener('click', () => {
-        b.level = btn.dataset.level; delete b.noShop; save();
-        if (b.level === 'low' || b.level === 'out') toast(`${b.name} is on your Shop list`);
+        const q = b.qty || 1;
+        if (btn.dataset.level === 'out' && q > 1) {
+          // Finished one bottle but there are more, so open the next one
+          b.qty = q - 1; b.level = 'full'; delete b.noShop; save();
+          toast(`Opened the next bottle. ${b.qty} left.`);
+        } else {
+          b.level = btn.dataset.level; delete b.noShop; save();
+          if ((b.level === 'low' || b.level === 'out') && q === 1) toast(`${b.name} is on your Shop list`);
+        }
         after ? after() : render();
+      }));
+      el.querySelectorAll('[data-qty]').forEach((btn) => btn.addEventListener('click', () => {
+        const n = (b.qty || 1) + Number(btn.dataset.qty);
+        if (n < 1) { if (confirm(`Remove ${b.name} from your bar?`)) { state.bottles = state.bottles.filter((x) => x.id !== b.id); save(); after ? after() : render(); } return; }
+        b.qty = n; save(); after ? after() : render();
       }));
       const ed = el.querySelector('[data-edit]');
       if (ed) ed.addEventListener('click', () => editBottle(b));
@@ -549,7 +562,7 @@
       Object.assign(d, { type: typeIn.value, grape: g('wGrape'), region: g('wRegion'), vintage: g('wVintage'), where: g('wWhere'), pair: g('wPairIn'), notes: g('wNotes'), rating, wish, count: wish ? 0 : Math.max(0, parseInt(g('wCount'), 10) || 0) });
       if (isNew) { d.added = new Date().toISOString().slice(0, 10); state.wines.push(d); }
       if (d.barcode) state.learned[d.barcode] = { name: d.name, wine: true, type: d.type };
-      save(); closeSheet(); render(); toast(isNew ? `${d.name} added` : 'Saved');
+      save(); closeSheet(); render(); toast(isNew ? `${d.name} added${d.qty > 1 ? ` (${d.qty} bottles)` : ''}` : 'Saved');
     };
     const del = $('#wDel', body);
     if (del) del.onclick = () => { if (confirm(`Remove ${d.name}?`)) { state.wines = state.wines.filter((x) => x.id !== d.id); save(); closeSheet(); render(); } };
@@ -611,6 +624,7 @@
       <label class="field">Category<select id="bCat">${CATS.map(([k, t]) => `<option value="${k}" ${k === catOf(d) ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
       <label class="field">What is it? (recipes use this)<select id="bKey">${typeOptions(d.key)}</select></label>
       <label class="field">Size (optional)<input id="bSize" value="${esc(d.size)}" placeholder="750ml"></label>
+      <div class="field">How many bottles<div class="qty big" role="group" aria-label="Number of bottles"><button type="button" id="bQm" aria-label="One fewer">−</button><input id="bQty" type="number" inputmode="numeric" min="1" value="${d.qty || 1}"><button type="button" id="bQp" aria-label="One more">+</button></div></div>
       <div class="btn-row"><button class="btn primary" id="bSave">${isNew ? 'Add to My Bar' : 'Save'}</button>
       ${isNew ? '' : '<button class="btn danger" id="bDel">Remove</button>'}</div>`);
     const body = $('#sheetBody');
@@ -624,8 +638,12 @@
     catIn.addEventListener('change', () => { catIn.dataset.touched = '1'; });
     if (prefill && prefill.cat) catIn.dataset.touched = '1';
     if (isNew && !d.name) setTimeout(() => nameIn.focus(), 250);
+    const qIn = $('#bQty', body);
+    $('#bQm', body).onclick = () => { qIn.value = Math.max(1, (parseInt(qIn.value, 10) || 1) - 1); };
+    $('#bQp', body).onclick = () => { qIn.value = (parseInt(qIn.value, 10) || 1) + 1; };
     $('#bSave', body).onclick = () => {
       d.name = nameIn.value.trim(); d.key = keyIn.value || null; d.size = $('#bSize', body).value.trim();
+      d.qty = Math.max(1, parseInt(qIn.value, 10) || 1); if (d.qty === 1) delete d.qty;
       // Keep the category only when it differs from what the type implies
       const auto = catOf({ name: d.name, key: d.key }); if (catIn.value !== auto) d.cat = catIn.value; else delete d.cat;
       if (!d.name) { toast('Give it a name'); return; }
@@ -871,10 +889,7 @@
       const p = parseLabel(lines);
       if (!p.name) { msg.textContent = 'Could not read the label. Try again in good light with the label filling the picture, or type the name.'; return; }
       const have = !prefill && scanMode === 'bar' && state.bottles.find((b) => b.name.toLowerCase() === p.name.toLowerCase());
-      if (have && confirm(`${have.name} is already in your bar. Add another bottle?`)) {
-        state.bottles.push(Object.assign({}, have, { id: uid(), level: 'full', added: new Date().toISOString().slice(0, 10) }));
-        save(); closeSheet(); render(); toast('Added another bottle'); return;
-      }
+      if (have && addMore(have)) return;
       const base = Object.assign({}, prefill || {});
       if (scanMode === 'wine') editWine(null, Object.assign(base, { name: p.name, type: guessWineType(lines.map((l) => l.text).join(' ')) }));
       else editBottle(null, Object.assign(base, { name: p.name, key: p.key, size: p.size || base.size || '' }));
@@ -919,6 +934,15 @@
     });
   }
 
+  // A bottle already in the bar: ask how many more instead of adding a copy
+  function addMore(b) {
+    const q = b.qty || 1;
+    const ans = prompt(`${b.name} is already in your bar (${q} bottle${q > 1 ? 's' : ''}). How many more are you adding?`, '1');
+    const n = parseInt(ans, 10);
+    if (!n || n < 1) return false;
+    b.qty = q + n; delete b.noShop; save(); closeSheet(); render(); toast(`${b.name}: ${b.qty} bottles`);
+    return true;
+  }
   async function handleCode(raw) {
     const code = (raw || '').replace(/\s/g, '');
     const msg = $('#scanMsg');
@@ -929,13 +953,7 @@
       if (w) { if (confirm(`${w.name} is already listed. Add one more bottle?`)) { w.wish = false; w.count = (w.count || 0) + 1; save(); closeSheet(); render(); toast(`${w.count} bottles of ${w.name}`); } return; }
     }
     const existing = scanMode === 'bar' && state.bottles.find((b) => codeVariants(code).includes(b.barcode));
-    if (existing) {
-      if (confirm(`${existing.name} is already in your bar. Add another bottle?`)) {
-        state.bottles.push(Object.assign({}, existing, { id: uid(), level: 'full', added: new Date().toISOString().slice(0, 10) }));
-        save(); closeSheet(); render(); toast('Added another bottle');
-      }
-      return;
-    }
+    if (existing) { addMore(existing); return; }
     for (const c of codeVariants(code)) {
       const hit = state.learned[c] || KNOWN_BARCODES[c];
       if (hit) {
@@ -1288,7 +1306,7 @@
   }
   function renderShop(v) {
     const have = stockedKeys();
-    const low = state.bottles.filter((b) => (b.level === 'low' || b.level === 'out') && !b.noShop);
+    const low = state.bottles.filter((b) => (b.level === 'low' || b.level === 'out') && (b.qty || 1) === 1 && !b.noShop);
     // Which single missing ingredient unlocks the most drinks?
     const unlock = {};
     allRecipes().forEach((r) => {
@@ -1332,7 +1350,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '17';
+  const APP_VERSION = '18';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1508,7 +1526,7 @@
     ['🍾', 'Stock your bar', 'Go to <b>My Bar</b> and tap <b>Scan a bottle</b>. Scan with your Bluetooth scanner or the phone camera. No luck? Tap <b>Photo of the label</b> and snap the front of the bottle, or <b>Photo of the barcode</b>. You can also type the number. No barcode? Tap <b>Add by name</b>. Then choose what the bottle is, for example Gin or Coffee Liqueur. That choice is how recipes know you have it.'],
     ['🗂️', 'Find things fast', 'At the top of <b>My Bar</b>, tap a category like <b>Spirits</b>, <b>Wine</b>, <b>Beer &amp; Cider</b>, <b>Mixers &amp; Juices</b> or <b>Garnish &amp; Fresh</b> to see just those. Adding from a category puts the new bottle there.'],
     ['↻', 'Refresh', 'Tap the <b>↻</b> button at the top to refresh and get the newest version. Your bar stays saved. You can also use <b>More</b> &gt; <b>Check for updates</b>.'],
-    ['🎚️', 'Keep levels current', 'Every bottle has four buttons: <b>Full</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it.'],
+    ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>Low</b> and <b>Out</b>. Tap <b>Low</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? Go to <b>More</b> &gt; <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],

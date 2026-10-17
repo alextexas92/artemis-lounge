@@ -211,3 +211,11 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 .shot-wrap { display: block; width: 100%; padding: 0; border: 1px solid var(--gold-dim); border-radius: 12px; overflow: hidden; background: none; cursor: zoom-in; max-height: 260px; }
 .shot-wrap.open { max-height: none; cursor: zoom-out; }
 .shot-full { display: block; width: 100%; }
+.levels button.on.three { background: #34472f; color: #b8d68a; font-weight: 600; }
+.qty { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; margin-right: 8px; flex: none; }
+.qty button { border: 0; background: transparent; color: var(--gold); width: 30px; height: 30px; font-size: 1.1rem; cursor: pointer; }
+.qty span { min-width: 18px; text-align: center; font-size: .9rem; }
+.qty.big { width: max-content; margin-top: 6px; }
+.qty.big button { width: 44px; height: 44px; }
+.qty.big input { width: 56px; text-align: center; border: 0; background: transparent; color: inherit; font-size: 1rem; -moz-appearance: textfield; }
+.qty.big input::-webkit-outer-spin-button, .qty.big input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
