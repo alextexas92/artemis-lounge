@@ -1068,7 +1068,7 @@
   // Adds a heading wherever the serving step changes
   function withHeadings(items, row, head) {
     let last = -1;
-    return items.map((r) => { const st = serveStep(r); const h = st !== last ? head(SERVE[st]) : ''; last = st; return h + row(r); }).join('');
+    return items.map((r) => { const st = serveStep(r); const h = st !== last ? head(SERVE[st]) : ''; last = st; return h + row(r, !!h); }).join('');
   }
 
   function menuSwitch() {
@@ -1152,12 +1152,16 @@
     $('#sendLink').onclick = () => shareText(state.menu.title, `${state.menu.title}: tonight’s cocktail menu\n${url}`);
   }
 
+  // Art deco trim for printed menus: sunburst crest, diamond rules, small diamonds between items
+  const P_FAN = '<svg class="fan" viewBox="0 0 120 60" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2"><line x1="60" y1="56" x2="106.4" y2="43.6"/><line x1="60" y1="56" x2="101.6" y2="32.0"/><line x1="60" y1="56" x2="93.9" y2="22.1"/><line x1="60" y1="56" x2="84.0" y2="14.4"/><line x1="60" y1="56" x2="72.4" y2="9.6"/><line x1="60" y1="56" x2="60.0" y2="8.0"/><line x1="60" y1="56" x2="47.6" y2="9.6"/><line x1="60" y1="56" x2="36.0" y2="14.4"/><line x1="60" y1="56" x2="26.1" y2="22.1"/><line x1="60" y1="56" x2="18.4" y2="32.0"/><line x1="60" y1="56" x2="13.6" y2="43.6"/><path d="M8 56 A52 52 0 0 1 112 56"/><path d="M24 56 A36 36 0 0 1 96 56"/></g><circle cx="60" cy="56" r="4" fill="currentColor"/></svg>';
+  const P_RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
+  const P_DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
   async function printMenu() {
     const url = await menuLink();
     const area = $('#printArea');
-    area.innerHTML = `<div class="pmenu"><h1>${esc(state.menu.title)}</h1><div class="orn">✦ ✦ ✦</div>
-      ${withHeadings(menuRecipes(), (r) => `<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}
-      <div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div>`;
+    area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<h1>${esc(state.menu.title)}</h1>${P_RULE}
+      ${withHeadings(menuRecipes(), (r, first) => `${first ? '' : P_DOT}<div class="drink">${state.menu.printPhotos && photoURL[r.id] ? `<img class="pphoto" src="${photoURL[r.id]}" alt="">` : ''}<b>${esc(r.name)}${r.zeroProof ? ' <i>zero proof</i>' : ''}</b><span>${esc(guestLine(r))}</span></div>`, (h) => `<div class="psec">${esc(h)}</div>`)}
+      ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     await Promise.all([...area.querySelectorAll('img.pphoto')].map((im) => (im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))));
     setTimeout(() => window.print(), 300);
@@ -1333,9 +1337,9 @@
     const d = dinnerData();
     const url = await encodeMenu(d);
     const area = $('#printArea');
-    area.innerHTML = `<div class="pmenu"><h1>${esc(d.t)}</h1><div class="orn">✦ ✦ ✦</div>
-      ${d.c.map(([course, dish, pours]) => `<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
-      <div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div>`;
+    area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<h1>${esc(d.t)}</h1>${P_RULE}
+      ${d.c.map(([course, dish, pours], i) => `${i ? P_DOT : ''}<div class="drink"><span class="pcourse">${esc(course)}</span>${dish ? `<b>${esc(dish)}</b>` : ''}<span>${esc(pours.join('  ·  '))}</span></div>`).join('')}
+      ${P_RULE}<div class="foot"><div>Scan to see this menu on your phone</div><div id="pqr" class="pqr"></div></div></div></div>`;
     try { await makeQR($('#pqr'), url, 110); } catch (e) { /* print without QR */ }
     setTimeout(() => window.print(), 300);
   }
@@ -1422,7 +1426,7 @@
   }
 
   // ── More tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '23';
+  const APP_VERSION = '24';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');

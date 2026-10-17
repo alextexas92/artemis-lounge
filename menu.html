@@ -33,6 +33,24 @@
   .course b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.5rem; font-weight:600; margin-bottom:6px; }
   .course span { display:block; color:var(--muted); font-size:.95rem; }
   .err { color:var(--muted); margin-top:40px; }
+  /* Art deco dress: a framed card, a sunburst crest, diamond rules between sections */
+  html { background:var(--bg); }
+  body { background: radial-gradient(ellipse 120% 600px at top, #2d1834 0%, var(--bg) 100%) no-repeat, var(--bg); min-height:100vh; padding:1px 0; }
+  main { position:relative; margin:22px max(16px, calc((100% - 540px) / 2)) 30px; border:1px solid var(--gold); outline:1px solid rgba(212,178,92,.35); outline-offset:6px; border-radius:4px; padding:calc(30px + env(safe-area-inset-top)) 22px 40px; max-width:540px; }
+  main::before, main::after { content:"◆"; position:absolute; left:50%; transform:translateX(-50%); color:var(--gold); background:var(--bg); padding:0 10px; font-size:.8rem; }
+  main::before { top:-.65rem; } main::after { bottom:-.65rem; }
+  .fan { display:block; width:110px; margin:0 auto 10px; color:var(--gold); opacity:.85; }
+  .rule { display:block; width:220px; max-width:70%; margin:10px auto 22px; color:var(--gold); opacity:.8; }
+  .dot { display:block; width:14px; margin:0 auto; color:var(--gold); opacity:.6; }
+  h1 { font-size:2.6rem; text-transform:uppercase; letter-spacing:.12em; }
+  .sec { display:flex; align-items:center; gap:12px; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.05rem; letter-spacing:.3em; margin:30px 0 4px; }
+  .sec::before, .sec::after { content:""; flex:1; height:1px; background:linear-gradient(90deg, transparent, var(--gold)); }
+  .sec::after { background:linear-gradient(90deg, var(--gold), transparent); }
+  button.drink, button.drink:last-of-type, .course, .course:last-of-type { border:0; }
+  button.drink { padding:14px 6px 10px; }
+  .drink b { font-size:1.7rem; letter-spacing:.02em; }
+  .drink span { font-style:italic; }
+  .cheers { font-family:"Cormorant Garamond",Georgia,serif; color:var(--gold); font-style:italic; font-size:1.2rem; margin-top:26px; opacity:.9; }
 </style>
 </head>
 <body>
@@ -43,6 +61,9 @@
 (async function () {
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const m = document.getElementById('m');
+  const FAN = '<svg class="fan" viewBox="0 0 120 60" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2"><line x1="60" y1="56" x2="106.4" y2="43.6"/><line x1="60" y1="56" x2="101.6" y2="32.0"/><line x1="60" y1="56" x2="93.9" y2="22.1"/><line x1="60" y1="56" x2="84.0" y2="14.4"/><line x1="60" y1="56" x2="72.4" y2="9.6"/><line x1="60" y1="56" x2="60.0" y2="8.0"/><line x1="60" y1="56" x2="47.6" y2="9.6"/><line x1="60" y1="56" x2="36.0" y2="14.4"/><line x1="60" y1="56" x2="26.1" y2="22.1"/><line x1="60" y1="56" x2="18.4" y2="32.0"/><line x1="60" y1="56" x2="13.6" y2="43.6"/><path d="M8 56 A52 52 0 0 1 112 56"/><path d="M24 56 A36 36 0 0 1 96 56"/></g><circle cx="60" cy="56" r="4" fill="currentColor"/></svg>';
+  const RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
+  const DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
   try {
     const raw = location.hash.slice(1);
     const kind = raw[0];
@@ -53,17 +74,18 @@
     const data = JSON.parse(new TextDecoder().decode(bytes));
     if (data.k === 'dinner') {
       document.title = data.t + ' · Dinner Menu';
-      m.innerHTML = `<h1>${esc(data.t)}</h1><div class="orn">✦ ✦ ✦</div>` +
-        data.c.map(([course, dish, pours]) => `<div class="course"><div class="cname">${esc(course)}</div>${dish ? `<b>${esc(dish)}</b>` : ''}${pours.map((x) => `<span>${esc(x)}</span>`).join('')}</div>`).join('');
+      m.innerHTML = `${FAN}<h1>${esc(data.t)}</h1>${RULE}` +
+        data.c.map(([course, dish, pours], i) => `${i ? DOT : ''}<div class="course"><div class="cname">${esc(course)}</div>${dish ? `<b>${esc(dish)}</b>` : ''}${pours.map((x) => `<span>${esc(x)}</span>`).join('')}</div>`).join('') + `${RULE}<div class="cheers">Cheers</div>`;
       return;
     }
     document.title = data.t + ' · Cocktail Menu';
-    m.innerHTML = `<h1>${esc(data.t)}</h1><div class="orn">✦ ✦ ✦</div><p class="hint">Tap a drink to choose it.</p>` +
+    m.innerHTML = `${FAN}<h1>${esc(data.t)}</h1>${RULE}<p class="hint">Tap a drink to choose it.</p>` +
       data.d.map(([n, d, z, st], i) => {
         // Section headings follow the order drinks are served, when the link has them
         const head = data.s && st != null && (i === 0 || data.d[i - 1][3] !== st) ? `<div class="sec">${esc(data.s[st])}</div>` : '';
-        return `${head}<button class="drink" data-i="${i}"><b>${esc(n)}</b>${z ? '<em class="zp">zero proof</em>' : ''}<span>${esc(d)}</span></button>`;
-      }).join('');
+        const dot = !head && i ? DOT : '';
+        return `${head}${dot}<button class="drink" data-i="${i}"><b>${esc(n)}</b>${z ? '<em class="zp">zero proof</em>' : ''}<span>${esc(d)}</span></button>`;
+      }).join('') + `${RULE}<div class="cheers">Cheers</div>`;
     const pick = document.getElementById('pick');
     let chosen = '';
     m.querySelectorAll('.drink').forEach((b) => b.addEventListener('click', () => {

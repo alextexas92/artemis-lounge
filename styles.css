@@ -223,3 +223,11 @@ h3.sub-h { margin-top: 12px; color: var(--gold); text-transform: none; letter-sp
 .pmenu .pqr { padding: 6px; }
 .pmenu .psec { font-family: var(--sans); font-size: 9pt; letter-spacing: .2em; text-transform: uppercase; color: #9c8143; margin: 22px 0 12px; }
 .pmenu .psec:first-of-type { margin-top: 0; }
+.pmenu .pframe { border: 1.5px solid #9c8143; outline: 1px solid #c9b27a; outline-offset: 5px; padding: 26px 30px 22px; margin: 8px; }
+.pmenu .fan { display: block; width: 90px; margin: 0 auto 6px; color: #9c8143; }
+.pmenu .rule { display: block; width: 200px; margin: 8px auto 18px; color: #9c8143; }
+.pmenu .dot { display: block; width: 12px; margin: 0 auto 14px; color: #c9b27a; }
+.pmenu h1 { text-transform: uppercase; letter-spacing: .14em; }
+.pmenu .psec { display: flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 12pt; letter-spacing: .3em; max-width: 420px; margin-left: auto; margin-right: auto; }
+.pmenu .psec::before, .pmenu .psec::after { content: ""; flex: 1; height: 1px; background: #c9b27a; }
+.pmenu .drink span { font-style: italic; }
