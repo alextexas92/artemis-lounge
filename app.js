@@ -1645,25 +1645,47 @@
     return m ? new Date(+m[1], m[2] - 1, +m[3]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
   };
   function partyRecipes() {
-    const P = state.party;
+    const P = curParty();
     return P.drinks.map(recipeById).filter(Boolean).map((r, i) => ({ r, i })).sort((a, b) => (a.r.zeroProof ? 1 : 0) - (b.r.zeroProof ? 1 : 0) || a.i - b.i).map((x) => x.r);
   }
+  // Parties are kept in a list so a past one can be opened or used again
+  function partyList() {
+    if (!Array.isArray(state.parties)) state.parties = [];
+    if (state.party) {
+      const pr = (window.AL_PARTY_PRESETS || []).find((x) => x.party.title === state.party.title && x.party.date === state.party.date);
+      if (pr && !state.party.preset) state.party.preset = pr.id;
+      state.party.id = state.party.id || uid(); state.parties.push(state.party); ui.partyId = state.party.id; delete state.party; save(); }
+    return state.parties;
+  }
+  const curParty = () => partyList().find((x) => x.id === ui.partyId);
+  function startParty(P) {
+    P.id = uid(); P.food.forEach((f) => { f.id = uid(); });
+    partyList().push(P); ui.partyId = P.id; save(); render(); window.scrollTo(0, 0);
+  }
   function renderParty(v) {
-    const P = state.party;
+    const P = curParty();
     if (!P) {
       const presets = window.AL_PARTY_PRESETS || [];
+      const list = partyList().slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
       v.innerHTML = `${menuSwitch()}
-        <h2>Party invite</h2>
-        <p class="intro">Make one link for a party. Guests see the invite, the RSVP button and the food and drinks menu. You can also print it on one page.</p>
-        ${presets.map((p, i) => `<button class="btn block primary" data-preset="${i}">Start with ${esc(p.label)}</button>`).join('')}
-        <button class="btn block" id="pNew">Start a blank party</button>`;
+        <h2>Parties</h2>
+        <p class="intro">Each party gets one link for guests with the invite, an RSVP button and the food and drinks menu. You can also print it on one page. Your parties stay here, so you can open one again or use it as a starting point.</p>
+        ${list.length ? list.map((x) => `<div class="course"><div class="course-name">${esc(x.title || 'Party')}</div><div class="hint">${esc([fmtDate(x.date) || 'No date yet', x.guests ? `${x.guests} guests` : ''].filter(Boolean).join(' · '))}</div>
+          <div class="btn-row"><button class="btn small primary" data-popen="${esc(x.id)}">Open</button><button class="btn small" data-pcopy="${esc(x.id)}">Use again</button></div></div>`).join('') : '<div class="empty">No parties yet.</div>'}
+        <h3>Start a new party</h3>
+        ${presets.map((p, i) => `<button class="btn block" data-preset="${i}">From ${esc(p.label)}</button>`).join('')}
+        <button class="btn block" id="pNew">Blank party</button>`;
       v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
-      v.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
-        state.party = Object.assign(blankParty(), JSON.parse(JSON.stringify(presets[+b.dataset.preset].party)));
-        state.party.food.forEach((f) => { f.id = uid(); });
-        save(); render();
+      v.querySelectorAll('[data-popen]').forEach((b) => b.addEventListener('click', () => { ui.partyId = b.dataset.popen; render(); window.scrollTo(0, 0); }));
+      v.querySelectorAll('[data-pcopy]').forEach((b) => b.addEventListener('click', () => {
+        const c = JSON.parse(JSON.stringify(partyList().find((x) => x.id === b.dataset.pcopy)));
+        c.date = ''; c.rsvpBy = ''; startParty(Object.assign(blankParty(), c)); toast('Copied. Set the new date.');
       }));
-      $('#pNew', v).onclick = () => { state.party = blankParty(); save(); render(); };
+      v.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+        const pr = presets[+b.dataset.preset];
+        startParty(Object.assign(blankParty(), JSON.parse(JSON.stringify(pr.party)), { preset: pr.id }));
+      }));
+      $('#pNew', v).onclick = () => startParty(blankParty());
       return;
     }
     P.food.forEach((f) => { if (!f.id) f.id = uid(); });
@@ -1681,6 +1703,7 @@
     const savory = P.food.filter((f) => !f.sweet), sweet = P.food.filter((f) => f.sweet);
     const drinks = partyRecipes();
     v.innerHTML = `${menuSwitch()}
+      <button class="linkish" id="pAll">‹ All parties</button>
       <h2>Party invite</h2>
       <ol class="steps-list">
         <li>Check the details. Everything saves as you type.</li>
@@ -1726,6 +1749,7 @@
       o[path[path.length - 1]] = path[0] === 'guests' ? Math.max(1, parseInt(el.value, 10) || 1) : el.value;
       save();
     }));
+    $('#pAll', v).onclick = () => { ui.partyId = null; render(); window.scrollTo(0, 0); };
     v.querySelectorAll('[data-sdel]').forEach((b) => b.addEventListener('click', () => { P.stops.splice(+b.dataset.sdel, 1); save(); render(); }));
     $('#pStop', v).onclick = () => { P.stops.push({ time: '', what: '', place: '', addr: '' }); save(); render(); };
     const findF = (el) => P.food.find((f) => f.id === el.closest('[data-food]').dataset.food);
@@ -1742,10 +1766,10 @@
     $('#pShare', v).onclick = shareParty;
     $('#pPrint', v).onclick = printParty;
     $('#pPrep', v).onclick = sharePrep;
-    $('#pClear', v).onclick = () => { if (confirm(`Delete ${P.title}? This can’t be undone.`)) { state.party = null; save(); render(); } };
+    $('#pClear', v).onclick = () => { if (confirm(`Delete ${P.title}? This can’t be undone.`)) { state.parties = partyList().filter((x) => x !== P); ui.partyId = null; save(); render(); } };
   }
   function pickPartyDrinks() {
-    const have = stockedKeys(), P = state.party;
+    const have = stockedKeys(), P = curParty();
     const rows = allRecipes().map((r) => ({ r, c: check(r, have) }));
     const row = ({ r, c }) => `<label class="check"><input type="checkbox" value="${esc(r.id)}" ${P.drinks.includes(r.id) ? 'checked' : ''}><span class="grow">${esc(r.name)}${r.zeroProof ? ' <span class="pill">zero proof</span>' : ''}${c.ok ? '' : ' <span class="pill">missing items</span>'}${r.keep ? `<span class="sub-note">${esc(r.keep)}</span>` : ''}</span></label>`;
     const sortOk = (a, b) => (b.c.ok - a.c.ok) || a.r.name.localeCompare(b.r.name);
@@ -1763,19 +1787,25 @@
       save(); closeSheet(); render();
     };
   }
+  // The guest link has to fit a QR code that phones can read, so it stays short:
+  // a party started from a preset sends only what changed, and a built-in drink
+  // with its usual description goes as its id. The guest page fills in the rest.
   function partyData() {
-    const P = state.party;
-    const d = { k: 'party', t: P.title, h: P.hosts, dt: P.date,
-      st: P.stops.filter((s) => s.time || s.what || s.place || s.addr).map((s) => [s.time, s.what, s.place, s.addr]),
-      go: P.travel, rs: (P.rsvpPhone || '').replace(/[^\d+]/g, ''), rb: P.rsvpBy,
-      fh: [P.foodHead, P.sweetHead, P.drinkHead],
-      f: P.food.filter((f) => f.name.trim()).map((f) => [f.sweet ? 1 : 0, f.name, f.desc]),
-      d: partyRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0]) };
-    if (P.give && P.give.url) d.gv = [P.give.title, P.give.note, P.give.url, P.give.btn || 'Open the list'];
+    const P = curParty();
+    const d = window.AL_partyGuest(P);
+    if (P.preset) {
+      const pr = (window.AL_PARTY_PRESETS || []).find((x) => x.id === P.preset);
+      if (pr) {
+        const base = window.AL_partyGuest(pr.party);
+        Object.keys(base).forEach((k) => { if (k === 'k') return; if (!(k in d)) d[k] = null; else if (JSON.stringify(d[k]) === JSON.stringify(base[k])) delete d[k]; });
+        d.p = P.preset;
+      }
+    }
+    d.d = partyRecipes().map((r) => (!r.custom && r.guest && !state.menu.notes[r.id] ? r.id : [r.name, guestLine(r), r.zeroProof ? 1 : 0]));
     return d;
   }
   async function shareParty() {
-    const P = state.party, url = await encodeMenu(partyData());
+    const P = curParty(), url = await encodeMenu(partyData());
     openSheet(`<h2>Party invite</h2><p class="hint">Guests scan this with their phone camera, or you text them the link. They see the invite, RSVP and the menu. No app or account needed.</p>
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
@@ -1784,7 +1814,9 @@
     $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
   }
   async function printParty() {
-    const d = partyData(), url = await encodeMenu(d);
+    const url = await encodeMenu(partyData());
+    const d = window.AL_partyGuest(curParty());
+    d.d = partyRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0]);
     const area = $('#printArea');
     const foods = (sweet) => d.f.filter(([s]) => !!s === sweet);
     const sec = (head, items) => (items.length ? `<div class="psec">${esc(head)}</div>` + items.map((x, i) => `${i ? P_DOT : ''}<div class="drink"><b>${esc(x[0])}${x[2] ? ' <i>zero proof</i>' : ''}</b>${x[1] ? `<span>${esc(x[1])}</span>` : ''}</div>`).join('') : '');
@@ -1804,7 +1836,7 @@
   }
   // Her own checklist: how much food to make and the batch amounts for the guest count
   function sharePrep() {
-    const P = state.party, n = P.guests || 10;
+    const P = curParty(), n = P.guests || 10;
     const food = (sweet) => P.food.filter((f) => !!f.sweet === sweet && f.name.trim()).map((f) => `☐ ${f.name}${f.qty ? `, ${f.qty}` : ''}`).join('\n');
     const drinks = partyRecipes().map((r) => `☐ ${r.name} for ${n}${r.keep ? `\n   ${r.keep}` : ''}\n` + r.ingredients.map((i) => `   ${scaleAmt(i.amt, n)} ${i.name}`.trimEnd()).join('\n')).join('\n');
     shareText(`${P.title} prep list`, `${P.title} prep list${P.date ? `, ${fmtDate(P.date)}` : ''}\n\n${(P.foodHead || 'Food').toUpperCase()}\n${food(false)}\n\n${(P.sweetHead || 'Desserts').toUpperCase()}\n${food(true)}\n\nDRINKS\n${drinks || 'No drinks picked yet.'}`);
@@ -1892,7 +1924,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '39';
+  const APP_VERSION = '40';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -2140,7 +2172,7 @@
     ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? On the <b>Make</b> tab, tap <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
-    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link &amp; QR</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count.'],
+    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link &amp; QR</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count. Every party stays on the Party list. Tap <b>Open</b> to see one again, or <b>Use again</b> to copy it for a new date.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. Making drinks somewhere else? Tap <b>Packing list</b> for the bottles, garnishes, tools and glasses to bring. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],

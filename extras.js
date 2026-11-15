@@ -194,6 +194,7 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
 
   // Ready-made parties she can start from on the Party screen
   window.AL_PARTY_PRESETS = [{
+    id: 'holiday-2026',
     label: 'Holiday Cocktail Party, Dec 5',
     party: {
       title: 'Holiday Cocktail Party', hosts: 'Morgan & Kelly', date: '2026-12-05', guests: 10,
@@ -220,3 +221,15 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
     },
   }];
 })();
+
+// What a guest sees of a party, without the drinks. Shared by the app and the
+// guest page so a short link can be filled back in from a preset.
+window.AL_partyGuest = function (P) {
+  const d = { k: 'party', t: P.title, h: P.hosts, dt: P.date,
+    st: (P.stops || []).filter((s) => s.time || s.what || s.place || s.addr).map((s) => [s.time, s.what, s.place, s.addr]),
+    go: P.travel, rs: (P.rsvpPhone || '').replace(/[^\d+]/g, ''), rb: P.rsvpBy,
+    fh: [P.foodHead, P.sweetHead, P.drinkHead],
+    f: (P.food || []).filter((f) => (f.name || '').trim()).map((f) => [f.sweet ? 1 : 0, f.name, f.desc]) };
+  if (P.give && P.give.url) d.gv = [P.give.title, P.give.note, P.give.url, P.give.btn || 'Open the list'];
+  return d;
+};
