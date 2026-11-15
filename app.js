@@ -1829,7 +1829,8 @@
       ${d.gv ? `<div class="pgive"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])} Scan the code below to find the list.</span></div>` : ''}
       ${d.rb ? `<div class="pnote">Please RSVP by ${esc(d.rb)}</div>` : ''}
       ${P_RULE}
-      <div class="plist">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}${sec(d.fh[1], foods(true).map(([, n, ds]) => [n, ds]))}${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>
+      <div class="pcols">${foods(false).length ? `<div class="pcol">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}</div>` : ''}${d.d.length ? `<div class="pcol">${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>` : ''}</div>
+      ${foods(true).length ? `<div class="psweet"><div class="psec">${esc(d.fh[1])}</div><div class="prow">${foods(true).map(([, n, ds]) => `<div class="drink"><b>${esc(n)}</b>${ds ? `<span>${esc(ds)}</span>` : ''}</div>`).join('')}</div></div>` : ''}
       ${P_RULE}<div class="foot"><div>Scan for the invite, RSVP and menu</div><div id="pqr" class="pqr"></div></div></div></div>`;
     $('#pqr').dataset.qr = url;
     readyToPrint(d.t);
@@ -1924,7 +1925,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '40';
+  const APP_VERSION = '41';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
