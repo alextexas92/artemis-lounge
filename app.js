@@ -1714,7 +1714,7 @@
       <ol class="steps-list">
         <li>Check the details. Everything saves as you type.</li>
         <li>Tap <b>Choose party drinks</b>. Make-ahead batches are listed first.</li>
-        <li>Tap <b>Guest link &amp; QR</b> to send the invite, or <b>Print</b> for a one-page copy.</li>
+        <li>Tap <b>Guest link</b> to send the invite, or <b>Print</b> for a one-page copy.</li>
       </ol>
       <label class="field">Party name${inp('title', P.title)}</label>
       <label class="field">Hosted by${inp('hosts', P.hosts, 'Your names')}</label>
@@ -1744,7 +1744,7 @@
       <button class="btn block" id="pPick">Choose party drinks (${drinks.length})</button>
       ${drinks.map((r) => { const c = check(r, have); return `<div class="menu-item"><button class="card" data-precipe="${esc(r.id)}"><div class="title">${esc(r.name)}${r.zeroProof ? ' <span class="pill">zero proof</span>' : ''}${r.batch ? ' <span class="pill">batch</span>' : ''}</div>${r.keep ? `<div class="hint">${esc(r.keep)}</div>` : ''}${c.ok ? '' : `<div class="miss">Need: ${esc(c.missing.map((m) => m.keys.length ? label(m.keys[0]) : m.name).join(', '))}</div>`}<div class="hint">Tap for the recipe for ${P.guests || 10}</div></button>
         <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`; }).join('')}
-      <div class="btn-row"><button class="btn primary" id="pShare">Guest link &amp; QR</button><button class="btn" id="pPrint">Print</button></div>
+      <div class="btn-row"><button class="btn primary" id="pShare">Guest link</button><button class="btn" id="pPrint">Print</button></div>
       <button class="btn block" id="pPrep">📝 Send my prep list</button>
       <button class="btn small danger" id="pClear" style="margin-top:12px">Delete this party</button>`;
     v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
@@ -1812,10 +1812,8 @@
   }
   async function shareParty() {
     const P = curParty(), url = await encodeMenu(partyData());
-    openSheet(`<h2>Party invite</h2><p class="hint">Guests scan this with their phone camera, or you text them the link. They see the invite, RSVP and the menu. No app or account needed.</p>
-      <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
+    openSheet(`<h2>Party invite</h2><p class="hint">Text guests the link. They see the invite, RSVP and the menu. No app or account needed.</p>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
-    try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
     const when = [fmtDate(P.date), P.stops[0] && fmtTime(P.stops[0].time)].filter(Boolean).join(' at ');
     $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
   }
@@ -1937,7 +1935,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '50';
+  const APP_VERSION = '51';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -2185,7 +2183,7 @@
     ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? On the <b>Make</b> tab, tap <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
-    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link &amp; QR</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count. Every party stays on the Party list. Tap <b>Open</b> to see one again, or <b>Use again</b> to copy it for a new date.'],
+    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count. Every party stays on the Party list. Tap <b>Open</b> to see one again, or <b>Use again</b> to copy it for a new date.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. Making drinks somewhere else? Tap <b>Packing list</b> for the bottles, garnishes, tools and glasses to bring. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
