@@ -293,3 +293,9 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu .pgive { display: block; text-align: center; }
 .pmenu .pgive .plink { display: inline-block; margin-top: 6px; font-family: var(--sans); font-size: 10.5pt; font-weight: 600; color: #9c8143; text-decoration: underline; }
 .pmenu .pgive .pgurl { display: block; }
+/* RSVP line on the printed party page */
+.pmenu .prsvp { margin: 10px auto 4px; font-family: var(--sans); font-size: 10pt; color: #555; }
+.pmenu .prsvp b { display: block; font-family: var(--serif); font-size: 12pt; color: #9c8143; letter-spacing: .1em; }
+.pmenu .prsvp .plink { display: inline-block; margin: 2px 0; font-weight: 600; color: #9c8143; text-decoration: underline; }
+.pmenu .prsvp span { display: block; }
+.pmenu .prsvp span a { text-decoration: underline; }

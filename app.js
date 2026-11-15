@@ -1380,7 +1380,7 @@
       const w = m.offsetWidth, h = m.offsetHeight;
       // Links stay tappable in the PDF: note where each one sits on the menu
       const box = m.getBoundingClientRect();
-      const links = [...m.querySelectorAll('a[href^="http"]')].map((a) => { const r = a.getBoundingClientRect(); return { url: a.href, x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }; });
+      const links = [...m.querySelectorAll('a[href^="http"], a[href^="sms:"]')].map((a) => { const r = a.getBoundingClientRect(); return { url: a.href, x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }; });
       const scale = Math.min(2.5, Math.sqrt(14e6 / (w * h)));
       // The canvas copy skips inline SVG, so the art deco trim goes in as pictures
       const svgs = [...m.querySelectorAll('svg')].map((el) => {
@@ -1817,8 +1817,11 @@
     const when = [fmtDate(P.date), P.stops[0] && fmtTime(P.stops[0].time)].filter(Boolean).join(' at ');
     $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
   }
-  // Guests get the invite by text, so the printed page is the party menu with no invite QR
+  const fmtPhone = (p) => { const x = String(p).replace(/\D/g, '').replace(/^1(?=\d{10}$)/, ''); return x.length === 10 ? `${x.slice(0, 3)}-${x.slice(3, 6)}-${x.slice(6)}` : p; };
+  // Guests get the invite by text, so the printed page is the party menu with no QR code.
+  // The RSVP line links back to the invite.
   async function printParty() {
+    const url = await encodeMenu(partyData());
     const d = window.AL_partyGuest(curParty());
     d.d = partyRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0]);
     const area = $('#printArea');
@@ -1831,7 +1834,7 @@
       <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<a class="paddr" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(addr))}">${esc(addr)}</a>` : ''}</div>`).join('')}</div>
       ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
       ${d.gv ? `<div class="pgive"><div class="pgtext"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])}</span><a class="plink" href="${esc(d.gv[2])}">${esc(d.gv[3])}</a><span class="pgurl">${esc(d.gv[2].replace(/^https?:\/\/(www\.)?/, ''))}</span></div></div>` : ''}
-      ${d.rb ? `<div class="pnote">Please RSVP by ${esc(d.rb)}</div>` : ''}
+      <div class="prsvp"><b>RSVP${d.rb ? ` by ${esc(d.rb)}` : ''}</b><a class="plink" href="${esc(url)}">Open the invite to RSVP</a>${d.rs ? `<span>or text ${esc(d.h || 'us')} at <a href="sms:${esc(d.rs)}">${esc(fmtPhone(d.rs))}</a></span>` : ''}</div>
       ${P_RULE}
       <div class="pcols">${foods(false).length ? `<div class="pcol">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}</div>` : ''}${d.d.length ? `<div class="pcol">${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>` : ''}</div>
       ${foods(true).length ? `<div class="psweet"><div class="psec">${esc(d.fh[1])}</div><div class="prow">${foods(true).map(([, n, ds]) => `<div class="drink"><b>${esc(n)}</b>${ds ? `<span>${esc(ds)}</span>` : ''}</div>`).join('')}</div></div>` : ''}
@@ -1928,7 +1931,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '42';
+  const APP_VERSION = '43';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
