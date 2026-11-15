@@ -199,7 +199,7 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
     party: {
       title: 'Holiday Cocktail Party', hosts: 'Morgan & Kelly', date: '2026-12-05', guests: 10,
       stops: [
-        { time: '17:00', what: 'Cocktails and hors d’oeuvres with holiday treats', place: 'Riverwalk apartment', addr: '111 W. Jones Ave, San Antonio, TX 78215' },
+        { time: '17:00', what: 'Cocktails and hors d’oeuvres with holiday treats', place: 'Riverwalk', addr: '111 W. Jones Ave, San Antonio, TX 78215' },
         { time: '20:00', what: 'Holiday dancing', place: 'Thirsty Horse Dance Hall & Saloon', addr: '2335 NW Military Hwy, San Antonio, TX 78231' },
       ],
       travel: 'Rideshare between the Riverwalk and Thirsty Horse.',
