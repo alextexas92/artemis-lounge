@@ -195,6 +195,7 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
   // Ready-made parties she can start from on the Party screen
   window.AL_PARTY_PRESETS = [{
     id: 'holiday-2026',
+    page: 'holiday.html', // link preview card with its own picture
     label: 'Holiday Cocktail Party, Dec 5',
     party: {
       title: 'Holiday Cocktail Party', hosts: 'Morgan & Kelly', date: '2026-12-05', guests: 10,
