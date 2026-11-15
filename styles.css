@@ -269,3 +269,8 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu .pgive { margin: 12px auto 6px; max-width: 480px; border: 1px solid #c9b27a; padding: 8px 14px; }
 .pmenu .pgive b { display: block; font-size: 12pt; font-weight: 600; color: #9c8143; }
 .pmenu .pgive span { display: block; font-family: var(--sans); font-size: 9.5pt; color: #555; }
+/* A heading and its first item stay together in the same column */
+.pmenu .pkeep { break-inside: avoid; page-break-inside: avoid; }
+.pmenu.two .plist .pkeep { display: inline-block; width: 100%; }
+.pmenu .plist .pkeep .psec { margin-top: 22px; }
+.pmenu .plist > .pkeep:first-child .psec { margin-top: 0; }

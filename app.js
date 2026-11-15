@@ -1365,6 +1365,16 @@
       // A tall menu reads better in two columns than shrunk into tiny print
       if (document.fonts && document.fonts.ready) await document.fonts.ready;
       if (m.scrollHeight > 1.45 * m.scrollWidth && m.querySelectorAll('.plist .drink').length > 5) m.classList.add('two');
+      // A heading never sits apart from its items. A short section stays whole in one
+      // column. A long one keeps at least its heading and first item together.
+      m.querySelectorAll('.plist > .psec').forEach((h) => {
+        const part = [];
+        for (let x = h.nextElementSibling; x && !x.classList.contains('psec'); x = x.nextElementSibling) part.push(x);
+        const items = part.filter((x) => x.classList.contains('drink')).length;
+        if (!items) return;
+        const keep = items <= 4 ? part : part.slice(0, part.findIndex((x) => x.classList.contains('drink')) + 1);
+        const w = document.createElement('div'); w.className = 'pkeep'; h.before(w); w.append(h, ...keep);
+      });
       // Widen a tall menu until its shape is close to the page, so the print stays larger
       for (let i = 0; i < 5 && m.offsetHeight / m.offsetWidth > 1.4; i++) m.style.width = `${Math.round(m.offsetWidth * Math.sqrt(m.offsetHeight / m.offsetWidth / 1.33))}px`;
       const w = m.offsetWidth, h = m.offsetHeight;
@@ -1882,7 +1892,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '38';
+  const APP_VERSION = '39';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
