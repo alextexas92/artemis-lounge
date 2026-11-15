@@ -160,7 +160,7 @@
       ${(data.f || []).length || d.length ? `${RULE}<p class="kick">The menu</p>` : ''}
       ${list(fh[0], food(foods(false)))}${list(fh[1], food(foods(true)))}
       ${list(fh[2], drink(d.filter((x) => !x[2])))}${list('Zero proof', drink(d.filter((x) => x[2])))}
-      ${d.length ? '<p class="hint" style="margin-top:14px">At the party, tap a drink to choose it.</p>' : ''}
+      ${d.length ? '<p class="hint" style="margin-top:14px">Tap a drink to place your order.</p>' : ''}
       ${RULE}<div class="cheers">See you there</div>`;
     m.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'Copied'; } catch (e) { b.textContent = b.dataset.copy; }
