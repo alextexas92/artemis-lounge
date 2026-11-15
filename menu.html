@@ -88,6 +88,7 @@
   .mcm .stop .time { display:inline-block; background:var(--red); color:var(--paper); border-radius:999px; padding:4px 12px 2px; font-family:"Josefin Sans",system-ui,sans-serif; font-weight:700; letter-spacing:.14em; }
   .mcm .stop b, .mcm .food b, .mcm .drink b { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:600; color:var(--ink); font-size:1.25rem; letter-spacing:.01em; }
   .mcm .stop span, .mcm .note, .mcm .hint, .mcm .food span, .mcm .drink span { color:var(--soft); }
+  .mcm .note a { color:var(--teal); font-weight:600; }
   .mcm .btn { background:var(--teal); border-color:var(--teal); color:var(--paper); border-radius:999px; font-weight:600; }
   .mcm .btn.ghost { background:transparent; color:var(--teal); }
   .mcm .give { background:#fdf1d6; border:2px dashed var(--mus); border-radius:18px; }
@@ -135,6 +136,7 @@
   const fmtDate = (d) => { const x = ymd(d); return x ? new Date(+x[1], x[2] - 1, +x[3]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''; };
   const iOS = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
   // Google Maps on every phone. It opens the Google Maps app when it's installed.
+  const fmtPhone = (p) => { const x = String(p).replace(/\D/g, '').replace(/^1(?=\d{10}$)/, ''); return x.length === 10 ? `${x.slice(0, 3)}-${x.slice(3, 6)}-${x.slice(6)}` : p; };
   const mapUrl = (a) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a);
   // Uber takes the address. Lyft and Waymo open their app or site, and guests paste the copied address.
   const LYFT = 'https://lyft.com/ride?id=lyft', WAYMO = 'https://waymo.com/';
@@ -155,6 +157,7 @@
       ${stops.map(([t, what, place, addr], i) => `${i ? DOT : ''}<div class="stop">${t ? `<div class="time">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span>${esc(addr)}</span><div class="links"><a class="btn ghost" href="${esc(mapUrl(addr))}" target="_blank" rel="noopener">Google Maps</a><button class="btn ghost" data-copy="${esc(addr)}">Copy address</button></div><div class="rides"><span>Rideshare</span><a href="${esc(uberUrl(addr))}" target="_blank" rel="noopener">Uber</a><a href="${LYFT}" target="_blank" rel="noopener">Lyft</a><a href="${WAYMO}" target="_blank" rel="noopener">Waymo</a></div>` : ''}</div>`).join('')}
       ${data.go ? `<p class="note">${esc(data.go)}</p>` : ''}
       <div class="actions"><button class="btn" id="rsvpBtn">RSVP</button>${ymd(data.dt) && stops[0] && stops[0][0] ? '<button class="btn ghost" id="calBtn">Add to my calendar</button>' : ''}</div>
+      ${data.rs ? `<p class="note">or text <a href="sms:${esc(data.rs)}">${esc(fmtPhone(data.rs))}</a></p>` : ''}
       ${data.rb ? `<p class="note">Please RSVP by ${esc(data.rb)}</p>` : ''}
       ${data.gv ? `<div class="give"><b>${esc(data.gv[0])}</b><p>${esc(data.gv[1])}</p><a class="btn" href="${esc(data.gv[2])}" target="_blank" rel="noopener">${esc(data.gv[3])}</a></div>` : ''}
       ${(data.f || []).length || d.length ? `${RULE}<p class="kick">The menu</p>` : ''}

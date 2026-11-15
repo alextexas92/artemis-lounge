@@ -1840,7 +1840,7 @@
       <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<a class="paddr" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(addr))}">${esc(addr)}</a><span class="prides">Rideshare: <a href="https://m.uber.com/ul/?action=setPickup&amp;pickup=my_location&amp;dropoff[formatted_address]=${esc(encodeURIComponent(addr))}">Uber</a> · <a href="https://lyft.com/ride?id=lyft">Lyft</a> · <a href="https://waymo.com/">Waymo</a></span>` : ''}</div>`).join('')}</div>
       ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
       ${d.gv ? `<div class="pgive"><div class="pgtext"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])}</span><a class="plink" href="${esc(d.gv[2])}">${esc(d.gv[3])}</a><span class="pgurl">${esc(d.gv[2].replace(/^https?:\/\/(www\.)?/, ''))}</span></div></div>` : ''}
-      <div class="prsvp"><b>RSVP${d.rb ? ` by ${esc(d.rb)}` : ''}</b><a class="plink" href="${esc(url)}">Open the invite to RSVP</a>${d.rs ? `<span>or text ${esc(d.h || 'us')} at <a href="sms:${esc(d.rs)}">${esc(fmtPhone(d.rs))}</a></span>` : ''}</div>
+      <div class="prsvp"><b>RSVP${d.rb ? ` by ${esc(d.rb)}` : ''}</b><a class="plink" href="${esc(url)}">Open the invite to RSVP</a>${d.rs ? `<span>or text <a href="sms:${esc(d.rs)}">${esc(fmtPhone(d.rs))}</a></span>` : ''}</div>
       ${MCM_RULE}
       <div class="pcols">${foods(false).length ? `<div class="pcol">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}</div>` : ''}${d.d.length ? `<div class="pcol">${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>` : ''}</div>
       ${foods(true).length ? `<div class="psweet"><div class="psec">${esc(d.fh[1])}</div><div class="prow">${foods(true).map(([, n, ds]) => `<div class="drink"><b>${esc(n)}</b>${ds ? `<span>${esc(ds)}</span>` : ''}</div>`).join('')}</div></div>` : ''}
@@ -1937,7 +1937,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '49';
+  const APP_VERSION = '50';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
