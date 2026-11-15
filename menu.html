@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#1b1020">
 <title>Cocktail Menu</title>
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500&family=Josefin+Sans:wght@400;600;700&display=swap">
 <style>
   :root { --bg:#1b1020; --text:#f4ece0; --muted:#bba9b8; --gold:#d4b25c; --line:#4a3052; --panel:#26162c; }
   * { box-sizing: border-box; }
@@ -72,6 +72,38 @@
   .pick input { width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--text); font:inherit; margin:6px 0 4px; }
   .pick .stack { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
   .pick .stack .btn { margin:0; }
+  /* Mid-century modern holiday look, used by party invites */
+  body.mcm { --ink:#2a2723; --teal:#2f7d74; --red:#c8432b; --mus:#e2a52a; --olive:#6f8a3a; --cream:#f6eedb; --paper:#fffaf0; --soft:#6b6355;
+    background:var(--cream); color:var(--ink); }
+  html:has(body.mcm) { background:#f6eedb; }
+  .mcm main { background:var(--paper); border:3px solid var(--teal); outline:0; border-radius:24px; box-shadow:8px 8px 0 var(--mus); }
+  .mcm main::before, .mcm main::after { content:none; }
+  .mcm .mtree { display:block; width:120px; margin:0 auto 8px; }
+  .mcm .mrule { display:block; width:220px; max-width:70%; margin:14px auto 20px; }
+  .mcm .mdot { display:block; width:14px; margin:4px auto; }
+  .mcm h1 { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:700; color:var(--teal); font-size:2.3rem; letter-spacing:.08em; line-height:1.1; }
+  .mcm .kick { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:700; color:var(--red); letter-spacing:.32em; font-size:.8rem; }
+  .mcm .host { font-family:"Josefin Sans",system-ui,sans-serif; font-style:normal; color:var(--soft); font-size:1.05rem; letter-spacing:.06em; }
+  .mcm .date { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:600; font-size:1.45rem; color:var(--ink); }
+  .mcm .stop .time { display:inline-block; background:var(--red); color:var(--paper); border-radius:999px; padding:4px 12px 2px; font-family:"Josefin Sans",system-ui,sans-serif; font-weight:700; letter-spacing:.14em; }
+  .mcm .stop b, .mcm .food b, .mcm .drink b { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:600; color:var(--ink); font-size:1.25rem; letter-spacing:.01em; }
+  .mcm .stop span, .mcm .note, .mcm .hint, .mcm .food span, .mcm .drink span { color:var(--soft); }
+  .mcm .btn { background:var(--teal); border-color:var(--teal); color:var(--paper); border-radius:999px; font-weight:600; }
+  .mcm .btn.ghost { background:transparent; color:var(--teal); }
+  .mcm .give { background:#fdf1d6; border:2px dashed var(--mus); border-radius:18px; }
+  .mcm .give b { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:700; color:var(--red); font-size:1.15rem; }
+  .mcm .give p { color:var(--soft); }
+  .mcm .sec { font-family:"Josefin Sans",system-ui,sans-serif; font-weight:700; color:var(--red); font-size:.85rem; letter-spacing:.24em; }
+  .mcm .sec::before { background:linear-gradient(90deg, transparent, var(--teal)); }
+  .mcm .sec::after { background:linear-gradient(90deg, var(--teal), transparent); }
+  .mcm .drink .zp { color:var(--teal); border-color:var(--teal); }
+  .mcm .cheers { font-family:"Josefin Sans",system-ui,sans-serif; font-style:normal; font-weight:700; color:var(--red); letter-spacing:.12em; text-transform:uppercase; font-size:1rem; }
+  .mcm .back { background:var(--cream); color:var(--teal); border-bottom-color:#e4d6b8; }
+  .mcm .pick { background:rgba(42,39,35,.55); }
+  .mcm .pick div { background:var(--paper); border:3px solid var(--teal); }
+  .mcm .pick b { font-family:"Josefin Sans",system-ui,sans-serif; color:var(--teal); }
+  .mcm .pick .hint { color:var(--soft); }
+  .mcm .pick input { background:#fff; color:var(--ink); border-color:#d9cba9; }
   .cheers { font-family:"Cormorant Garamond",Georgia,serif; color:var(--gold); font-style:italic; font-size:1.2rem; margin-top:26px; opacity:.9; }
 </style>
 </head>
@@ -90,6 +122,10 @@
   const FAN = '<svg class="fan" viewBox="0 0 120 60" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2"><line x1="60" y1="56" x2="106.4" y2="43.6"/><line x1="60" y1="56" x2="101.6" y2="32.0"/><line x1="60" y1="56" x2="93.9" y2="22.1"/><line x1="60" y1="56" x2="84.0" y2="14.4"/><line x1="60" y1="56" x2="72.4" y2="9.6"/><line x1="60" y1="56" x2="60.0" y2="8.0"/><line x1="60" y1="56" x2="47.6" y2="9.6"/><line x1="60" y1="56" x2="36.0" y2="14.4"/><line x1="60" y1="56" x2="26.1" y2="22.1"/><line x1="60" y1="56" x2="18.4" y2="32.0"/><line x1="60" y1="56" x2="13.6" y2="43.6"/><path d="M8 56 A52 52 0 0 1 112 56"/><path d="M24 56 A36 36 0 0 1 96 56"/></g><circle cx="60" cy="56" r="4" fill="currentColor"/></svg>';
   const RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
   const DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
+  // Mid-century holiday trim for party invites: a stacked tree, atomic starbursts
+  const MCM_TREE = '<svg class="mtree" viewBox="0 0 120 124" aria-hidden="true"><g stroke="#e2a52a" stroke-width="1.4" stroke-linecap="round"><line x1="24.2" y1="30.0" x2="31.0" y2="30.0"/><line x1="22.9" y1="30.9" x2="25.5" y2="33.5"/><line x1="22.0" y1="32.2" x2="22.0" y2="39.0"/><line x1="21.1" y1="30.9" x2="18.5" y2="33.5"/><line x1="19.8" y1="30.0" x2="13.0" y2="30.0"/><line x1="21.1" y1="29.1" x2="18.5" y2="26.5"/><line x1="22.0" y1="27.8" x2="22.0" y2="21.0"/><line x1="22.9" y1="29.1" x2="25.5" y2="26.5"/></g><circle cx="22" cy="30" r="1.5" fill="#e2a52a"/><g stroke="#c8432b" stroke-width="1.3" stroke-linecap="round"><line x1="99.8" y1="44.0" x2="105.0" y2="44.0"/><line x1="98.7" y1="44.7" x2="100.7" y2="46.7"/><line x1="98.0" y1="45.8" x2="98.0" y2="51.0"/><line x1="97.3" y1="44.7" x2="95.3" y2="46.7"/><line x1="96.2" y1="44.0" x2="91.0" y2="44.0"/><line x1="97.3" y1="43.3" x2="95.3" y2="41.3"/><line x1="98.0" y1="42.2" x2="98.0" y2="37.0"/><line x1="98.7" y1="43.3" x2="100.7" y2="41.3"/></g><circle cx="98" cy="44" r="1.5" fill="#c8432b"/><g stroke="#2f7d74" stroke-width="1.2" stroke-linecap="round"><line x1="17.5" y1="92.0" x2="22.0" y2="92.0"/><line x1="16.6" y1="92.6" x2="18.3" y2="94.3"/><line x1="16.0" y1="93.5" x2="16.0" y2="98.0"/><line x1="15.4" y1="92.6" x2="13.7" y2="94.3"/><line x1="14.5" y1="92.0" x2="10.0" y2="92.0"/><line x1="15.4" y1="91.4" x2="13.7" y2="89.7"/><line x1="16.0" y1="90.5" x2="16.0" y2="86.0"/><line x1="16.6" y1="91.4" x2="18.3" y2="89.7"/></g><circle cx="16" cy="92" r="1.5" fill="#2f7d74"/><g stroke="#e2a52a" stroke-width="1.4" stroke-linecap="round"><line x1="106.0" y1="96.0" x2="112.0" y2="96.0"/><line x1="104.8" y1="96.8" x2="107.1" y2="99.1"/><line x1="104.0" y1="98.0" x2="104.0" y2="104.0"/><line x1="103.2" y1="96.8" x2="100.9" y2="99.1"/><line x1="102.0" y1="96.0" x2="96.0" y2="96.0"/><line x1="103.2" y1="95.2" x2="100.9" y2="92.9"/><line x1="104.0" y1="94.0" x2="104.0" y2="88.0"/><line x1="104.8" y1="95.2" x2="107.1" y2="92.9"/></g><circle cx="104" cy="96" r="1.5" fill="#e2a52a"/><rect x="54" y="100" width="12" height="14" rx="2" fill="#8a4b2a"/><polygon points="60,56 100,102 20,102" fill="#2f7d74"/><polygon points="60,38 88,76 32,76" fill="#6f8a3a"/><polygon points="60,20 78,52 42,52" fill="#2f7d74"/><circle cx="50" cy="46" r="3.4" fill="#c8432b"/><circle cx="68" cy="40" r="3.4" fill="#e2a52a"/><circle cx="44" cy="70" r="3.4" fill="#e2a52a"/><circle cx="74" cy="66" r="3.4" fill="#c8432b"/><circle cx="58" cy="62" r="3.4" fill="#c8432b"/><circle cx="36" cy="96" r="3.4" fill="#c8432b"/><circle cx="60" cy="90" r="3.4" fill="#e2a52a"/><circle cx="84" cy="95" r="3.4" fill="#c8432b"/><circle cx="70" cy="84" r="3.4" fill="#fffaf0"/><circle cx="46" cy="86" r="3.4" fill="#fffaf0"/><g stroke="#e2a52a" stroke-width="2" stroke-linecap="round"><line x1="62.8" y1="13.0" x2="71.0" y2="13.0"/><line x1="61.1" y1="14.1" x2="64.3" y2="17.3"/><line x1="60.0" y1="15.8" x2="60.0" y2="24.0"/><line x1="58.9" y1="14.1" x2="55.7" y2="17.3"/><line x1="57.2" y1="13.0" x2="49.0" y2="13.0"/><line x1="58.9" y1="11.9" x2="55.7" y2="8.7"/><line x1="60.0" y1="10.2" x2="60.0" y2="2.0"/><line x1="61.1" y1="11.9" x2="64.3" y2="8.7"/></g><circle cx="60" cy="13" r="1.5" fill="#e2a52a"/></svg>';
+  const MCM_RULE = '<svg class="mrule" viewBox="0 0 240 24" aria-hidden="true"><g stroke="#2f7d74" stroke-width="1.6" stroke-linecap="round"><line x1="6" y1="12" x2="96" y2="12"/><line x1="144" y1="12" x2="234" y2="12"/></g><circle cx="104" cy="12" r="2.6" fill="#c8432b"/><circle cx="136" cy="12" r="2.6" fill="#c8432b"/><g stroke="#e2a52a" stroke-width="1.6" stroke-linecap="round"><line x1="122.5" y1="12.0" x2="130.0" y2="12.0"/><line x1="121.0" y1="13.0" x2="123.9" y2="15.9"/><line x1="120.0" y1="14.5" x2="120.0" y2="22.0"/><line x1="119.0" y1="13.0" x2="116.1" y2="15.9"/><line x1="117.5" y1="12.0" x2="110.0" y2="12.0"/><line x1="119.0" y1="11.0" x2="116.1" y2="8.1"/><line x1="120.0" y1="9.5" x2="120.0" y2="2.0"/><line x1="121.0" y1="11.0" x2="123.9" y2="8.1"/></g><circle cx="120" cy="12" r="1.5" fill="#e2a52a"/></svg>';
+  const MCM_DOT = '<svg class="mdot" viewBox="0 0 20 20" aria-hidden="true"><g stroke="#e2a52a" stroke-width="1.4" stroke-linecap="round"><line x1="12.0" y1="10.0" x2="18.0" y2="10.0"/><line x1="10.8" y1="10.8" x2="13.1" y2="13.1"/><line x1="10.0" y1="12.0" x2="10.0" y2="18.0"/><line x1="9.2" y1="10.8" x2="6.9" y2="13.1"/><line x1="8.0" y1="10.0" x2="2.0" y2="10.0"/><line x1="9.2" y1="9.2" x2="6.9" y2="6.9"/><line x1="10.0" y1="8.0" x2="10.0" y2="2.0"/><line x1="10.8" y1="9.2" x2="13.1" y2="6.9"/></g><circle cx="10" cy="10" r="1.5" fill="#e2a52a"/></svg>';
   const fmtTime = (t) => { const x = /^(\d{1,2}):(\d{2})$/.exec(t || ''); if (!x) return t || ''; const h = +x[1]; return `${h % 12 || 12}:${x[2]} ${h < 12 ? 'AM' : 'PM'}`; };
   const ymd = (d) => /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
   const fmtDate = (d) => { const x = ymd(d); return x ? new Date(+x[1], x[2] - 1, +x[3]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''; };
@@ -98,6 +134,9 @@
   const uberUrl = (a) => 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=' + encodeURIComponent(a);
   function party(data) {
     document.title = data.t + ' · Invite';
+    document.body.classList.add('mcm');
+    document.querySelector('meta[name=theme-color]').content = '#f6eedb';
+    const FAN = MCM_TREE, RULE = MCM_RULE, DOT = MCM_DOT;
     const stops = data.st || [], fh = data.fh || ['Bites', 'Sweets', 'Cocktails'];
     const foods = (sweet) => (data.f || []).filter(([s]) => !!s === sweet);
     const list = (head, rows) => (rows.length ? `<div class="sec">${esc(head)}</div>` + rows.join('') : '');

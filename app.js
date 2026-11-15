@@ -1817,6 +1817,10 @@
     const when = [fmtDate(P.date), P.stops[0] && fmtTime(P.stops[0].time)].filter(Boolean).join(' at ');
     $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
   }
+  // Mid-century holiday trim for the printed party page
+  const MCM_TREE = '<svg class="mtree" viewBox="0 0 120 124" aria-hidden="true"><g stroke="#e2a52a" stroke-width="1.4" stroke-linecap="round"><line x1="24.2" y1="30.0" x2="31.0" y2="30.0"/><line x1="22.9" y1="30.9" x2="25.5" y2="33.5"/><line x1="22.0" y1="32.2" x2="22.0" y2="39.0"/><line x1="21.1" y1="30.9" x2="18.5" y2="33.5"/><line x1="19.8" y1="30.0" x2="13.0" y2="30.0"/><line x1="21.1" y1="29.1" x2="18.5" y2="26.5"/><line x1="22.0" y1="27.8" x2="22.0" y2="21.0"/><line x1="22.9" y1="29.1" x2="25.5" y2="26.5"/></g><circle cx="22" cy="30" r="1.5" fill="#e2a52a"/><g stroke="#c8432b" stroke-width="1.3" stroke-linecap="round"><line x1="99.8" y1="44.0" x2="105.0" y2="44.0"/><line x1="98.7" y1="44.7" x2="100.7" y2="46.7"/><line x1="98.0" y1="45.8" x2="98.0" y2="51.0"/><line x1="97.3" y1="44.7" x2="95.3" y2="46.7"/><line x1="96.2" y1="44.0" x2="91.0" y2="44.0"/><line x1="97.3" y1="43.3" x2="95.3" y2="41.3"/><line x1="98.0" y1="42.2" x2="98.0" y2="37.0"/><line x1="98.7" y1="43.3" x2="100.7" y2="41.3"/></g><circle cx="98" cy="44" r="1.5" fill="#c8432b"/><g stroke="#2f7d74" stroke-width="1.2" stroke-linecap="round"><line x1="17.5" y1="92.0" x2="22.0" y2="92.0"/><line x1="16.6" y1="92.6" x2="18.3" y2="94.3"/><line x1="16.0" y1="93.5" x2="16.0" y2="98.0"/><line x1="15.4" y1="92.6" x2="13.7" y2="94.3"/><line x1="14.5" y1="92.0" x2="10.0" y2="92.0"/><line x1="15.4" y1="91.4" x2="13.7" y2="89.7"/><line x1="16.0" y1="90.5" x2="16.0" y2="86.0"/><line x1="16.6" y1="91.4" x2="18.3" y2="89.7"/></g><circle cx="16" cy="92" r="1.5" fill="#2f7d74"/><g stroke="#e2a52a" stroke-width="1.4" stroke-linecap="round"><line x1="106.0" y1="96.0" x2="112.0" y2="96.0"/><line x1="104.8" y1="96.8" x2="107.1" y2="99.1"/><line x1="104.0" y1="98.0" x2="104.0" y2="104.0"/><line x1="103.2" y1="96.8" x2="100.9" y2="99.1"/><line x1="102.0" y1="96.0" x2="96.0" y2="96.0"/><line x1="103.2" y1="95.2" x2="100.9" y2="92.9"/><line x1="104.0" y1="94.0" x2="104.0" y2="88.0"/><line x1="104.8" y1="95.2" x2="107.1" y2="92.9"/></g><circle cx="104" cy="96" r="1.5" fill="#e2a52a"/><rect x="54" y="100" width="12" height="14" rx="2" fill="#8a4b2a"/><polygon points="60,56 100,102 20,102" fill="#2f7d74"/><polygon points="60,38 88,76 32,76" fill="#6f8a3a"/><polygon points="60,20 78,52 42,52" fill="#2f7d74"/><circle cx="50" cy="46" r="3.4" fill="#c8432b"/><circle cx="68" cy="40" r="3.4" fill="#e2a52a"/><circle cx="44" cy="70" r="3.4" fill="#e2a52a"/><circle cx="74" cy="66" r="3.4" fill="#c8432b"/><circle cx="58" cy="62" r="3.4" fill="#c8432b"/><circle cx="36" cy="96" r="3.4" fill="#c8432b"/><circle cx="60" cy="90" r="3.4" fill="#e2a52a"/><circle cx="84" cy="95" r="3.4" fill="#c8432b"/><circle cx="70" cy="84" r="3.4" fill="#fffaf0"/><circle cx="46" cy="86" r="3.4" fill="#fffaf0"/><g stroke="#e2a52a" stroke-width="2" stroke-linecap="round"><line x1="62.8" y1="13.0" x2="71.0" y2="13.0"/><line x1="61.1" y1="14.1" x2="64.3" y2="17.3"/><line x1="60.0" y1="15.8" x2="60.0" y2="24.0"/><line x1="58.9" y1="14.1" x2="55.7" y2="17.3"/><line x1="57.2" y1="13.0" x2="49.0" y2="13.0"/><line x1="58.9" y1="11.9" x2="55.7" y2="8.7"/><line x1="60.0" y1="10.2" x2="60.0" y2="2.0"/><line x1="61.1" y1="11.9" x2="64.3" y2="8.7"/></g><circle cx="60" cy="13" r="1.5" fill="#e2a52a"/></svg>';
+  const MCM_RULE = '<svg class="mrule" viewBox="0 0 240 24" aria-hidden="true"><g stroke="#2f7d74" stroke-width="1.6" stroke-linecap="round"><line x1="6" y1="12" x2="96" y2="12"/><line x1="144" y1="12" x2="234" y2="12"/></g><circle cx="104" cy="12" r="2.6" fill="#c8432b"/><circle cx="136" cy="12" r="2.6" fill="#c8432b"/><g stroke="#e2a52a" stroke-width="1.6" stroke-linecap="round"><line x1="122.5" y1="12.0" x2="130.0" y2="12.0"/><line x1="121.0" y1="13.0" x2="123.9" y2="15.9"/><line x1="120.0" y1="14.5" x2="120.0" y2="22.0"/><line x1="119.0" y1="13.0" x2="116.1" y2="15.9"/><line x1="117.5" y1="12.0" x2="110.0" y2="12.0"/><line x1="119.0" y1="11.0" x2="116.1" y2="8.1"/><line x1="120.0" y1="9.5" x2="120.0" y2="2.0"/><line x1="121.0" y1="11.0" x2="123.9" y2="8.1"/></g><circle cx="120" cy="12" r="1.5" fill="#e2a52a"/></svg>';
+  const MCM_DOT = '<svg class="mdot" viewBox="0 0 20 20" aria-hidden="true"><g stroke="#e2a52a" stroke-width="1.4" stroke-linecap="round"><line x1="12.0" y1="10.0" x2="18.0" y2="10.0"/><line x1="10.8" y1="10.8" x2="13.1" y2="13.1"/><line x1="10.0" y1="12.0" x2="10.0" y2="18.0"/><line x1="9.2" y1="10.8" x2="6.9" y2="13.1"/><line x1="8.0" y1="10.0" x2="2.0" y2="10.0"/><line x1="9.2" y1="9.2" x2="6.9" y2="6.9"/><line x1="10.0" y1="8.0" x2="10.0" y2="2.0"/><line x1="10.8" y1="9.2" x2="13.1" y2="6.9"/></g><circle cx="10" cy="10" r="1.5" fill="#e2a52a"/></svg>';
   const fmtPhone = (p) => { const x = String(p).replace(/\D/g, '').replace(/^1(?=\d{10}$)/, ''); return x.length === 10 ? `${x.slice(0, 3)}-${x.slice(3, 6)}-${x.slice(6)}` : p; };
   // Guests get the invite by text, so the printed page is the party menu with no QR code.
   // The RSVP line links back to the invite.
@@ -1826,19 +1830,19 @@
     d.d = partyRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0]);
     const area = $('#printArea');
     const foods = (sweet) => d.f.filter(([s]) => !!s === sweet);
-    const sec = (head, items) => (items.length ? `<div class="psec">${esc(head)}</div>` + items.map((x, i) => `${i ? P_DOT : ''}<div class="drink"><b>${esc(x[0])}${x[2] ? ' <i>zero proof</i>' : ''}</b>${x[1] ? `<span>${esc(x[1])}</span>` : ''}</div>`).join('') : '');
+    const sec = (head, items) => (items.length ? `<div class="psec">${esc(head)}</div>` + items.map((x, i) => `${i ? MCM_DOT : ''}<div class="drink"><b>${esc(x[0])}${x[2] ? ' <i>zero proof</i>' : ''}</b>${x[1] ? `<span>${esc(x[1])}</span>` : ''}</div>`).join('') : '');
     const ck = d.d.filter((x) => !x[2]), zp = d.d.filter((x) => x[2]);
-    area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<div class="pkick">You’re invited</div><h1>${esc(d.t)}</h1>
-      ${d.h ? `<div class="phost">Hosted by ${esc(d.h)}</div>` : ''}${P_RULE}
+    area.innerHTML = `<div class="pmenu mcm"><div class="pframe">${MCM_TREE}<div class="pkick">You’re invited</div><h1>${esc(d.t)}</h1>
+      ${d.h ? `<div class="phost">Hosted by ${esc(d.h)}</div>` : ''}${MCM_RULE}
       ${d.dt ? `<div class="pdate">${esc(fmtDate(d.dt))}</div>` : ''}
       <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<a class="paddr" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(addr))}">${esc(addr)}</a>` : ''}</div>`).join('')}</div>
       ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
       ${d.gv ? `<div class="pgive"><div class="pgtext"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])}</span><a class="plink" href="${esc(d.gv[2])}">${esc(d.gv[3])}</a><span class="pgurl">${esc(d.gv[2].replace(/^https?:\/\/(www\.)?/, ''))}</span></div></div>` : ''}
       <div class="prsvp"><b>RSVP${d.rb ? ` by ${esc(d.rb)}` : ''}</b><a class="plink" href="${esc(url)}">Open the invite to RSVP</a>${d.rs ? `<span>or text ${esc(d.h || 'us')} at <a href="sms:${esc(d.rs)}">${esc(fmtPhone(d.rs))}</a></span>` : ''}</div>
-      ${P_RULE}
+      ${MCM_RULE}
       <div class="pcols">${foods(false).length ? `<div class="pcol">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}</div>` : ''}${d.d.length ? `<div class="pcol">${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>` : ''}</div>
       ${foods(true).length ? `<div class="psweet"><div class="psec">${esc(d.fh[1])}</div><div class="prow">${foods(true).map(([, n, ds]) => `<div class="drink"><b>${esc(n)}</b>${ds ? `<span>${esc(ds)}</span>` : ''}</div>`).join('')}</div></div>` : ''}
-      ${P_RULE}</div></div>`;
+      ${MCM_RULE}</div></div>`;
     readyToPrint(d.t);
   }
   // Her own checklist: how much food to make and the batch amounts for the guest count
@@ -1931,7 +1935,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '43';
+  const APP_VERSION = '44';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
