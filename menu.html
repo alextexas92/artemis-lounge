@@ -177,7 +177,19 @@
     let bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
     if (kind === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
     const data = JSON.parse(new TextDecoder().decode(bytes));
-    if (data.k === 'party') return party(data);
+    if (data.k === 'party') {
+      // Short links name a preset and built-in drinks by id. The recipe files fill them in.
+      if (data.p || (data.d || []).some((x) => typeof x === 'string')) {
+        const load = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+        await load('data.js'); await load('extras.js');
+        const pr = data.p && (window.AL_PARTY_PRESETS || []).find((x) => x.id === data.p);
+        if (data.p && !pr) throw new Error('unknown party');
+        const full = Object.assign(pr ? window.AL_partyGuest(pr.party) : {}, data);
+        full.d = (data.d || []).map((x) => { if (typeof x !== 'string') return x; const r = window.AL_RECIPES.find((y) => y.id === x); return r ? [r.name, r.guest || '', r.zeroProof ? 1 : 0] : null; }).filter(Boolean);
+        return party(full);
+      }
+      return party(data);
+    }
     if (data.k === 'dinner') {
       document.title = data.t + ' · Dinner Menu';
       m.innerHTML = `${FAN}<h1>${esc(data.t)}</h1>${RULE}` +
