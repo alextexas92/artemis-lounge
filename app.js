@@ -1378,6 +1378,9 @@
       // Widen a tall menu until its shape is close to the page, so the print stays larger
       for (let i = 0; i < 5 && m.offsetHeight / m.offsetWidth > 1.4; i++) m.style.width = `${Math.round(m.offsetWidth * Math.sqrt(m.offsetHeight / m.offsetWidth / 1.33))}px`;
       const w = m.offsetWidth, h = m.offsetHeight;
+      // Links stay tappable in the PDF: note where each one sits on the menu
+      const box = m.getBoundingClientRect();
+      const links = [...m.querySelectorAll('a[href^="http"]')].map((a) => { const r = a.getBoundingClientRect(); return { url: a.href, x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }; });
       const scale = Math.min(2.5, Math.sqrt(14e6 / (w * h)));
       // The canvas copy skips inline SVG, so the art deco trim goes in as pictures
       const svgs = [...m.querySelectorAll('svg')].map((el) => {
@@ -1396,6 +1399,7 @@
       const fit = Math.min((PW - 2 * MG) / w, (PH - 2 * MG - footH) / h);
       const iw = w * fit, ih = h * fit;
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (PW - iw) / 2, MG, iw, ih);
+      links.forEach((l) => pdf.link((PW - iw) / 2 + l.x * fit, MG + l.y * fit, l.w * fit, l.h * fit, { url: l.url }));
       if (q) {
         const top = MG + ih + 0.2, x0 = (PW - qs) / 2, cell = qs / n;
         pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(102);
@@ -1813,8 +1817,8 @@
     const when = [fmtDate(P.date), P.stops[0] && fmtTime(P.stops[0].time)].filter(Boolean).join(' at ');
     $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
   }
+  // Guests get the invite by text, so the printed page is the party menu with no invite QR
   async function printParty() {
-    const url = await encodeMenu(partyData());
     const d = window.AL_partyGuest(curParty());
     d.d = partyRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0]);
     const area = $('#printArea');
@@ -1824,15 +1828,14 @@
     area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<div class="pkick">You’re invited</div><h1>${esc(d.t)}</h1>
       ${d.h ? `<div class="phost">Hosted by ${esc(d.h)}</div>` : ''}${P_RULE}
       ${d.dt ? `<div class="pdate">${esc(fmtDate(d.dt))}</div>` : ''}
-      <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span class="paddr">${esc(addr)}</span>` : ''}</div>`).join('')}</div>
+      <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<a class="paddr" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(addr))}">${esc(addr)}</a>` : ''}</div>`).join('')}</div>
       ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
-      ${d.gv ? `<div class="pgive"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])} Scan the code below to find the list.</span></div>` : ''}
+      ${d.gv ? `<div class="pgive"><div class="pgtext"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])}</span><a class="plink" href="${esc(d.gv[2])}">${esc(d.gv[3])}</a><span class="pgurl">${esc(d.gv[2].replace(/^https?:\/\/(www\.)?/, ''))}</span></div></div>` : ''}
       ${d.rb ? `<div class="pnote">Please RSVP by ${esc(d.rb)}</div>` : ''}
       ${P_RULE}
       <div class="pcols">${foods(false).length ? `<div class="pcol">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}</div>` : ''}${d.d.length ? `<div class="pcol">${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>` : ''}</div>
       ${foods(true).length ? `<div class="psweet"><div class="psec">${esc(d.fh[1])}</div><div class="prow">${foods(true).map(([, n, ds]) => `<div class="drink"><b>${esc(n)}</b>${ds ? `<span>${esc(ds)}</span>` : ''}</div>`).join('')}</div></div>` : ''}
-      ${P_RULE}<div class="foot"><div>Scan for the invite, RSVP and menu</div><div id="pqr" class="pqr"></div></div></div></div>`;
-    $('#pqr').dataset.qr = url;
+      ${P_RULE}</div></div>`;
     readyToPrint(d.t);
   }
   // Her own checklist: how much food to make and the batch amounts for the guest count
@@ -1925,7 +1928,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '41';
+  const APP_VERSION = '42';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');

@@ -283,3 +283,13 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu .pcol { flex: 1; min-width: 0; }
 .pmenu .pcol .psec:first-child { margin-top: 0; }
 .pmenu .pcol .psec { margin-top: 22px; }
+/* Giving-back box with its own QR code */
+.pmenu .pgive { display: flex; align-items: center; gap: 16px; text-align: left; max-width: 560px; }
+.pmenu .pgive .pgtext { flex: 1; }
+.pmenu .pgive .pgurl { margin-top: 4px; font-size: 8pt; color: #777; word-break: break-all; }
+.pmenu .pgqr canvas { display: block; }
+.pmenu a { color: inherit; }
+.pmenu .pstop a.paddr { display: block; font-family: var(--sans); font-size: 9pt; color: #777; text-decoration: underline; text-decoration-color: #c9b27a; }
+.pmenu .pgive { display: block; text-align: center; }
+.pmenu .pgive .plink { display: inline-block; margin-top: 6px; font-family: var(--sans); font-size: 10.5pt; font-weight: 600; color: #9c8143; text-decoration: underline; }
+.pmenu .pgive .pgurl { display: block; }
