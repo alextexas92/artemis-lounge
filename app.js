@@ -1659,6 +1659,8 @@
       const pr = (window.AL_PARTY_PRESETS || []).find((x) => x.party.title === state.party.title && x.party.date === state.party.date);
       if (pr && !state.party.preset) state.party.preset = pr.id;
       state.party.id = state.party.id || uid(); state.parties.push(state.party); ui.partyId = state.party.id; delete state.party; save(); }
+    // The Dec 5 travel note changed to Rideshare. Update parties still holding the old words.
+    state.parties.forEach((x) => { if (x.travel === 'Drive or take an Uber between the Riverwalk and Thirsty Horse.') { x.travel = 'Rideshare between the Riverwalk and Thirsty Horse.'; save(); } });
     return state.parties;
   }
   const curParty = () => partyList().find((x) => x.id === ui.partyId);
@@ -1835,7 +1837,7 @@
     area.innerHTML = `<div class="pmenu mcm"><div class="pframe">${MCM_TREE}<div class="pkick">You’re invited</div><h1>${esc(d.t)}</h1>
       ${d.h ? `<div class="phost">Hosted by ${esc(d.h)}</div>` : ''}${MCM_RULE}
       ${d.dt ? `<div class="pdate">${esc(fmtDate(d.dt))}</div>` : ''}
-      <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<a class="paddr" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(addr))}">${esc(addr)}</a><span class="prides">Ride: <a href="https://m.uber.com/ul/?action=setPickup&amp;pickup=my_location&amp;dropoff[formatted_address]=${esc(encodeURIComponent(addr))}">Uber</a> · <a href="https://lyft.com/ride?id=lyft">Lyft</a> · <a href="https://waymo.com/">Waymo</a></span>` : ''}</div>`).join('')}</div>
+      <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<a class="paddr" href="https://www.google.com/maps/search/?api=1&amp;query=${esc(encodeURIComponent(addr))}">${esc(addr)}</a><span class="prides">Rideshare: <a href="https://m.uber.com/ul/?action=setPickup&amp;pickup=my_location&amp;dropoff[formatted_address]=${esc(encodeURIComponent(addr))}">Uber</a> · <a href="https://lyft.com/ride?id=lyft">Lyft</a> · <a href="https://waymo.com/">Waymo</a></span>` : ''}</div>`).join('')}</div>
       ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
       ${d.gv ? `<div class="pgive"><div class="pgtext"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])}</span><a class="plink" href="${esc(d.gv[2])}">${esc(d.gv[3])}</a><span class="pgurl">${esc(d.gv[2].replace(/^https?:\/\/(www\.)?/, ''))}</span></div></div>` : ''}
       <div class="prsvp"><b>RSVP${d.rb ? ` by ${esc(d.rb)}` : ''}</b><a class="plink" href="${esc(url)}">Open the invite to RSVP</a>${d.rs ? `<span>or text ${esc(d.h || 'us')} at <a href="sms:${esc(d.rs)}">${esc(fmtPhone(d.rs))}</a></span>` : ''}</div>
@@ -1935,7 +1937,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '45';
+  const APP_VERSION = '46';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
