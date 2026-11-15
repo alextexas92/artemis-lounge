@@ -165,6 +165,7 @@
       if (w.wish || !(w.count > 0)) return;
       if (w.type === 'Sparkling') s.add('sparkling-wine');
       if (w.type === 'White') s.add('dry-white-wine');
+      if (w.type === 'Red') s.add('red-wine');
     });
     return s;
   }
@@ -315,9 +316,9 @@
         <div class="row"><h2 class="grow">${esc(r.name)}</h2><button class="star ${isFav ? 'on' : ''}" id="favBtn" aria-pressed="${isFav}" aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}">${isFav ? '★' : '☆'}</button></div>
         <div class="facts">${esc([r.category, r.glass, r.method, r.difficulty].filter(Boolean).join(' · '))}</div>
         <h3>Ingredients ${n > 1 ? `<span class="count">for ${n}</span>` : ''}</h3>
-        <div class="serves" role="group" aria-label="How many drinks">${[1, 2, 4, 6, 8, 12].map((k) => `<button class="${k === n ? 'on' : ''}" data-serves="${k}">${k === 1 ? '1 drink' : k}</button>`).join('')}</div>
+        <div class="serves" role="group" aria-label="How many drinks">${[1, 2, 4, 6, 8, 10, 12].map((k) => `<button class="${k === n ? 'on' : ''}" data-serves="${k}">${k === 1 ? '1 drink' : k}</button>`).join('')}</div>
         <ul class="ings">${ingHtml || '<li>No ingredients entered.</li>'}</ul>
-        ${batchTip ? `<p class="hint batch-tip">${esc(batchTip)}</p>` : ''}
+        ${r.keep ? `<p class="hint batch-tip">🧊 ${esc(r.keep)}</p>` : batchTip ? `<p class="hint batch-tip">${esc(batchTip)}</p>` : ''}
         ${r.garnish ? `<h3>Garnish</h3><p class="steps">${esc(r.garnish)}</p>` : ''}
         ${r.steps ? `<h3>How to make it</h3><p class="steps">${esc(r.steps)}</p>` : ''}
         ${r.source ? `<p class="hint">Recipe from ${esc(r.source)}</p>` : ''}
@@ -1061,6 +1062,7 @@
   // ── Menu tab ─────────────────────────────────────────────────────────
   function guestLine(r) {
     if (state.menu.notes[r.id]) return state.menu.notes[r.id];
+    if (r.guest) return r.guest;
     const parts = r.ingredients.filter((i) => !i.optional && i.keys.length && !PANTRY.has(i.keys[0]))
       .map((i) => i.name.replace(/\b(fresh|london dry|green)\b/gi, '').replace(/\s+/g, ' ').trim())
       .map((n) => (/^(Campari|Chambord|Cointreau|Lillet|Galliano|Angostura|DOM|Kahl)/.test(n) ? n : n.toLowerCase()));
@@ -1092,7 +1094,8 @@
   }
 
   function menuSwitch() {
-    return `<div class="seg" role="tablist"><button role="tab" class="${ui.menuView !== 'dinner' ? 'on' : ''}" data-mview="drinks">Drinks menu</button><button role="tab" class="${ui.menuView === 'dinner' ? 'on' : ''}" data-mview="dinner">Dinner pairing</button></div>`;
+    const on = (k) => ((ui.menuView || 'drinks') === k ? 'on' : '');
+    return `<div class="seg" role="tablist"><button role="tab" class="${on('drinks')}" data-mview="drinks">Drinks</button><button role="tab" class="${on('dinner')}" data-mview="dinner">Dinner</button><button role="tab" class="${on('party')}" data-mview="party">Party</button></div>`;
   }
   // Drinks without alcohol she simply has on hand: tea, sodas, sparkling water
   const softList = () => (state.menu.soft || []).filter(Boolean);
@@ -1108,6 +1111,7 @@
   }
   function renderMenu(v) {
     if (ui.menuView === 'dinner') return renderDinner(v);
+    if (ui.menuView === 'party') return renderParty(v);
     const items = menuRecipes();
     const soft = softList();
     const have = stockedKeys();
@@ -1385,7 +1389,7 @@
       if (q) {
         const top = MG + ih + 0.2, x0 = (PW - qs) / 2, cell = qs / n;
         pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(102);
-        pdf.text('Scan to see this menu on your phone', PW / 2, top + 0.05, { align: 'center' });
+        pdf.text((foot.firstElementChild && foot.firstElementChild.textContent) || 'Scan to see this menu on your phone', PW / 2, top + 0.05, { align: 'center' });
         pdf.setFillColor(0, 0, 0);
         for (let r = 0; r < n - 8; r++) for (let k = 0; k < n - 8; k++) if (q.isDark(r, k)) pdf.rect(x0 + (k + 4) * cell, top + 0.15 + (r + 4) * cell, cell, cell, 'F');
       }
@@ -1613,6 +1617,189 @@
     readyToPrint(d.t);
   }
 
+  // ── Party invite ─────────────────────────────────────────────────────
+  // One link for guests: the invite on top (when, where, RSVP, giving back),
+  // then the food and drinks. Amounts of food stay on the host's side.
+  const blankParty = () => ({ title: 'Party', hosts: '', date: '', guests: 10,
+    stops: [{ time: '', what: '', place: '', addr: '' }], travel: '',
+    give: { title: '', note: '', url: '', btn: '' }, rsvpPhone: '', rsvpBy: '',
+    foodHead: 'Bites', sweetHead: 'Sweets', drinkHead: 'Cocktails', food: [], drinks: [] });
+  const fmtTime = (t) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(t || '');
+    if (!m) return t || '';
+    const h = +m[1];
+    return `${h % 12 || 12}:${m[2]} ${h < 12 ? 'AM' : 'PM'}`;
+  };
+  const fmtDate = (d) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
+    return m ? new Date(+m[1], m[2] - 1, +m[3]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '';
+  };
+  function partyRecipes() {
+    const P = state.party;
+    return P.drinks.map(recipeById).filter(Boolean).map((r, i) => ({ r, i })).sort((a, b) => (a.r.zeroProof ? 1 : 0) - (b.r.zeroProof ? 1 : 0) || a.i - b.i).map((x) => x.r);
+  }
+  function renderParty(v) {
+    const P = state.party;
+    if (!P) {
+      const presets = window.AL_PARTY_PRESETS || [];
+      v.innerHTML = `${menuSwitch()}
+        <h2>Party invite</h2>
+        <p class="intro">Make one link for a party. Guests see the invite, the RSVP button and the food and drinks menu. You can also print it on one page.</p>
+        ${presets.map((p, i) => `<button class="btn block primary" data-preset="${i}">Start with ${esc(p.label)}</button>`).join('')}
+        <button class="btn block" id="pNew">Start a blank party</button>`;
+      v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
+      v.querySelectorAll('[data-preset]').forEach((b) => b.addEventListener('click', () => {
+        state.party = Object.assign(blankParty(), JSON.parse(JSON.stringify(presets[+b.dataset.preset].party)));
+        state.party.food.forEach((f) => { f.id = uid(); });
+        save(); render();
+      }));
+      $('#pNew', v).onclick = () => { state.party = blankParty(); save(); render(); };
+      return;
+    }
+    P.food.forEach((f) => { if (!f.id) f.id = uid(); });
+    const have = stockedKeys();
+    const inp = (path, val, ph, type) => `<input data-p="${path}" ${type ? `type="${type}"` : ''} value="${esc(val || '')}" placeholder="${esc(ph || '')}">`;
+    const stop = (s, k) => `<div class="course"><div class="row"><div class="grow course-name">${k ? 'Then' : 'First'}</div>${P.stops.length > 1 ? `<button class="btn small danger" data-sdel="${k}" aria-label="Remove this stop">✕</button>` : ''}</div>
+      <label class="field">Time${inp(`stops.${k}.time`, s.time, '', 'time')}</label>
+      <label class="field">What’s happening${inp(`stops.${k}.what`, s.what, 'Cocktails and appetizers')}</label>
+      <label class="field">Place name${inp(`stops.${k}.place`, s.place, 'Our place')}</label>
+      <label class="field">Street address, so guests get a map button${inp(`stops.${k}.addr`, s.addr, '123 Main St, City, TX')}</label></div>`;
+    const foodRow = (f) => `<div class="course" data-food="${esc(f.id)}">
+      <div class="row"><input class="grow" data-f="name" value="${esc(f.name)}" placeholder="Dish name"><button class="btn small danger" data-fdel="1" aria-label="Remove ${esc(f.name)}">✕</button></div>
+      <label class="field">What guests read<textarea data-f="desc" rows="2">${esc(f.desc)}</textarea></label>
+      <label class="field">How much to make. Only you see this.<input data-f="qty" value="${esc(f.qty)}" placeholder="20 pieces"></label></div>`;
+    const savory = P.food.filter((f) => !f.sweet), sweet = P.food.filter((f) => f.sweet);
+    const drinks = partyRecipes();
+    v.innerHTML = `${menuSwitch()}
+      <h2>Party invite</h2>
+      <ol class="steps-list">
+        <li>Check the details. Everything saves as you type.</li>
+        <li>Tap <b>Choose party drinks</b>. Make-ahead batches are listed first.</li>
+        <li>Tap <b>Guest link &amp; QR</b> to send the invite, or <b>Print</b> for a one-page copy.</li>
+      </ol>
+      <label class="field">Party name${inp('title', P.title)}</label>
+      <label class="field">Hosted by${inp('hosts', P.hosts, 'Your names')}</label>
+      <div class="row"><label class="field grow">Date${inp('date', P.date, '', 'date')}</label><label class="field" style="width:110px">Guests${inp('guests', P.guests, '10', 'number')}</label></div>
+      <h3>Where and when</h3>
+      ${P.stops.map(stop).join('')}
+      <button class="btn small" id="pStop">＋ Add another stop</button>
+      <label class="field">Getting there${inp('travel', P.travel, 'Parking is on the street')}</label>
+      <h3>RSVP</h3>
+      <label class="field">Phone number that gets the RSVP texts<input data-p="rsvpPhone" type="tel" value="${esc(P.rsvpPhone)}" placeholder="210 555 0123"></label>
+      <p class="hint">Leave it blank and guests pick who to send it to.</p>
+      <label class="field">RSVP by (optional)${inp('rsvpBy', P.rsvpBy, 'November 28')}</label>
+      <h3>Giving back</h3>
+      <label class="field">Heading${inp('give.title', P.give.title, 'In the spirit of giving')}</label>
+      <label class="field">What guests read<textarea data-p="give.note" rows="3">${esc(P.give.note)}</textarea></label>
+      <label class="field">Link${inp('give.url', P.give.url, 'https://')}</label>
+      <label class="field">Button words${inp('give.btn', P.give.btn, 'See the list')}</label>
+      <h3>Food</h3>
+      <label class="field">Heading for savory food${inp('foodHead', P.foodHead)}</label>
+      ${savory.map(foodRow).join('')}
+      <button class="btn small" data-fadd="0">＋ Add savory dish</button>
+      <label class="field" style="margin-top:14px">Heading for desserts${inp('sweetHead', P.sweetHead)}</label>
+      ${sweet.map(foodRow).join('')}
+      <button class="btn small" data-fadd="1">＋ Add dessert</button>
+      <h3>Drinks</h3>
+      <label class="field">Heading for drinks${inp('drinkHead', P.drinkHead)}</label>
+      <button class="btn block" id="pPick">Choose party drinks (${drinks.length})</button>
+      ${drinks.map((r) => { const c = check(r, have); return `<div class="menu-item"><button class="card" data-precipe="${esc(r.id)}"><div class="title">${esc(r.name)}${r.zeroProof ? ' <span class="pill">zero proof</span>' : ''}${r.batch ? ' <span class="pill">batch</span>' : ''}</div>${r.keep ? `<div class="hint">${esc(r.keep)}</div>` : ''}${c.ok ? '' : `<div class="miss">Need: ${esc(c.missing.map((m) => m.keys.length ? label(m.keys[0]) : m.name).join(', '))}</div>`}<div class="hint">Tap for the recipe for ${P.guests || 10}</div></button>
+        <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`; }).join('')}
+      <div class="btn-row"><button class="btn primary" id="pShare">Guest link &amp; QR</button><button class="btn" id="pPrint">Print</button></div>
+      <button class="btn block" id="pPrep">📝 Send my prep list</button>
+      <button class="btn small danger" id="pClear" style="margin-top:12px">Delete this party</button>`;
+    v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
+    // Save as she types so Share or Print right after has the newest words
+    v.querySelectorAll('[data-p]').forEach((el) => el.addEventListener('input', () => {
+      const path = el.dataset.p.split('.');
+      let o = P; for (let k = 0; k < path.length - 1; k++) o = o[path[k]];
+      o[path[path.length - 1]] = path[0] === 'guests' ? Math.max(1, parseInt(el.value, 10) || 1) : el.value;
+      save();
+    }));
+    v.querySelectorAll('[data-sdel]').forEach((b) => b.addEventListener('click', () => { P.stops.splice(+b.dataset.sdel, 1); save(); render(); }));
+    $('#pStop', v).onclick = () => { P.stops.push({ time: '', what: '', place: '', addr: '' }); save(); render(); };
+    const findF = (el) => P.food.find((f) => f.id === el.closest('[data-food]').dataset.food);
+    v.querySelectorAll('[data-f]').forEach((el) => el.addEventListener('input', () => { findF(el)[el.dataset.f] = el.value; save(); }));
+    v.querySelectorAll('[data-fdel]').forEach((b) => b.addEventListener('click', () => { const f = findF(b); if (confirm(`Remove ${f.name || 'this dish'}?`)) { P.food.splice(P.food.indexOf(f), 1); save(); render(); } }));
+    v.querySelectorAll('[data-fadd]').forEach((b) => b.addEventListener('click', () => {
+      const sweetNew = b.dataset.fadd === '1', f = { id: uid(), sweet: sweetNew, name: '', desc: '', qty: '' };
+      const last = P.food.map((x) => x.sweet).lastIndexOf(sweetNew);
+      P.food.splice(last < 0 ? (sweetNew ? P.food.length : 0) : last + 1, 0, f); save(); render();
+    }));
+    v.querySelectorAll('[data-precipe]').forEach((b) => b.addEventListener('click', () => { ui.serves = P.guests || 10; openRecipe(b.dataset.precipe); }));
+    v.querySelectorAll('[data-note]').forEach((t) => t.addEventListener('input', () => { state.menu.notes[t.dataset.note] = t.value.trim(); save(); }));
+    $('#pPick', v).onclick = pickPartyDrinks;
+    $('#pShare', v).onclick = shareParty;
+    $('#pPrint', v).onclick = printParty;
+    $('#pPrep', v).onclick = sharePrep;
+    $('#pClear', v).onclick = () => { if (confirm(`Delete ${P.title}? This can’t be undone.`)) { state.party = null; save(); render(); } };
+  }
+  function pickPartyDrinks() {
+    const have = stockedKeys(), P = state.party;
+    const rows = allRecipes().map((r) => ({ r, c: check(r, have) }));
+    const row = ({ r, c }) => `<label class="check"><input type="checkbox" value="${esc(r.id)}" ${P.drinks.includes(r.id) ? 'checked' : ''}><span class="grow">${esc(r.name)}${r.zeroProof ? ' <span class="pill">zero proof</span>' : ''}${c.ok ? '' : ' <span class="pill">missing items</span>'}${r.keep ? `<span class="sub-note">${esc(r.keep)}</span>` : ''}</span></label>`;
+    const sortOk = (a, b) => (b.c.ok - a.c.ok) || a.r.name.localeCompare(b.r.name);
+    const batches = rows.filter((x) => x.r.batch);
+    openSheet(`<h2>Party drinks</h2>
+      <p class="hint">Batches are mixed ahead, bottled and kept in the fridge, so you pour instead of shake. Drinks you can make now are listed first.</p>
+      <h3>Make-ahead cocktails</h3>${batches.filter((x) => !x.r.zeroProof).sort(sortOk).map(row).join('')}
+      <h3>Make-ahead mocktails</h3>${batches.filter((x) => x.r.zeroProof).sort(sortOk).map(row).join('')}
+      <h3>All other drinks</h3>${rows.filter((x) => !x.r.batch).sort(sortOk).map(row).join('')}
+      <div class="btn-row"><button class="btn primary" id="done">Done</button></div>`);
+    $('#done').onclick = () => {
+      const picked = [...document.querySelectorAll('#sheetBody input[type=checkbox]:checked')].map((i) => i.value);
+      // Keep the order she already had, and add new picks at the end
+      P.drinks = P.drinks.filter((id) => picked.includes(id)).concat(picked.filter((id) => !P.drinks.includes(id)));
+      save(); closeSheet(); render();
+    };
+  }
+  function partyData() {
+    const P = state.party;
+    const d = { k: 'party', t: P.title, h: P.hosts, dt: P.date,
+      st: P.stops.filter((s) => s.time || s.what || s.place || s.addr).map((s) => [s.time, s.what, s.place, s.addr]),
+      go: P.travel, rs: (P.rsvpPhone || '').replace(/[^\d+]/g, ''), rb: P.rsvpBy,
+      fh: [P.foodHead, P.sweetHead, P.drinkHead],
+      f: P.food.filter((f) => f.name.trim()).map((f) => [f.sweet ? 1 : 0, f.name, f.desc]),
+      d: partyRecipes().map((r) => [r.name, guestLine(r), r.zeroProof ? 1 : 0]) };
+    if (P.give && P.give.url) d.gv = [P.give.title, P.give.note, P.give.url, P.give.btn || 'Open the list'];
+    return d;
+  }
+  async function shareParty() {
+    const P = state.party, url = await encodeMenu(partyData());
+    openSheet(`<h2>Party invite</h2><p class="hint">Guests scan this with their phone camera, or you text them the link. They see the invite, RSVP and the menu. No app or account needed.</p>
+      <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
+      <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
+    try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
+    const when = [fmtDate(P.date), P.stops[0] && fmtTime(P.stops[0].time)].filter(Boolean).join(' at ');
+    $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
+  }
+  async function printParty() {
+    const d = partyData(), url = await encodeMenu(d);
+    const area = $('#printArea');
+    const foods = (sweet) => d.f.filter(([s]) => !!s === sweet);
+    const sec = (head, items) => (items.length ? `<div class="psec">${esc(head)}</div>` + items.map((x, i) => `${i ? P_DOT : ''}<div class="drink"><b>${esc(x[0])}${x[2] ? ' <i>zero proof</i>' : ''}</b>${x[1] ? `<span>${esc(x[1])}</span>` : ''}</div>`).join('') : '');
+    const ck = d.d.filter((x) => !x[2]), zp = d.d.filter((x) => x[2]);
+    area.innerHTML = `<div class="pmenu"><div class="pframe">${P_FAN}<div class="pkick">You’re invited</div><h1>${esc(d.t)}</h1>
+      ${d.h ? `<div class="phost">Hosted by ${esc(d.h)}</div>` : ''}${P_RULE}
+      ${d.dt ? `<div class="pdate">${esc(fmtDate(d.dt))}</div>` : ''}
+      <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span class="paddr">${esc(addr)}</span>` : ''}</div>`).join('')}</div>
+      ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
+      ${d.gv ? `<div class="pgive"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])} Scan the code below to find the list.</span></div>` : ''}
+      ${d.rb ? `<div class="pnote">Please RSVP by ${esc(d.rb)}</div>` : ''}
+      ${P_RULE}
+      <div class="plist">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}${sec(d.fh[1], foods(true).map(([, n, ds]) => [n, ds]))}${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>
+      ${P_RULE}<div class="foot"><div>Scan for the invite, RSVP and menu</div><div id="pqr" class="pqr"></div></div></div></div>`;
+    $('#pqr').dataset.qr = url;
+    readyToPrint(d.t);
+  }
+  // Her own checklist: how much food to make and the batch amounts for the guest count
+  function sharePrep() {
+    const P = state.party, n = P.guests || 10;
+    const food = (sweet) => P.food.filter((f) => !!f.sweet === sweet && f.name.trim()).map((f) => `☐ ${f.name}${f.qty ? `, ${f.qty}` : ''}`).join('\n');
+    const drinks = partyRecipes().map((r) => `☐ ${r.name} for ${n}${r.keep ? `\n   ${r.keep}` : ''}\n` + r.ingredients.map((i) => `   ${scaleAmt(i.amt, n)} ${i.name}`.trimEnd()).join('\n')).join('\n');
+    shareText(`${P.title} prep list`, `${P.title} prep list${P.date ? `, ${fmtDate(P.date)}` : ''}\n\n${(P.foodHead || 'Food').toUpperCase()}\n${food(false)}\n\n${(P.sweetHead || 'Desserts').toUpperCase()}\n${food(true)}\n\nDRINKS\n${drinks || 'No drinks picked yet.'}`);
+  }
+
   // ── Where to buy ─────────────────────────────────────────────────────
   // No store shares live stock without a paid account, so these are search
   // links aimed at the person's zip code. They work anywhere in the US.
@@ -1695,7 +1882,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '37';
+  const APP_VERSION = '38';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -1943,7 +2130,8 @@
     ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? On the <b>Make</b> tab, tap <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
-    ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner pairing</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
+    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link &amp; QR</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count.'],
+    ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. Making drinks somewhere else? Tap <b>Packing list</b> for the bottles, garnishes, tools and glasses to bring. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
     ['🛒', 'Shop', 'The <b>Shop</b> tab lists bottles at ¼ or Out, plus the bottles that would unlock the most new drinks. Tap <b>Bought it</b> after you restock. Tap <b>📍</b> to search stores near your zip code. You can also add your own items and share the list.'],

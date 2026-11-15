@@ -52,12 +52,35 @@
   button.drink { padding:14px 6px 10px; }
   .drink b { font-size:1.7rem; letter-spacing:.02em; }
   .drink span { font-style:italic; }
+  .kick { font-size:.72rem; letter-spacing:.3em; text-transform:uppercase; color:var(--gold); margin:0 0 6px; }
+  .host { font-family:"Cormorant Garamond",Georgia,serif; font-style:italic; font-size:1.25rem; color:var(--muted); margin:8px 0 0; }
+  .date { font-family:"Cormorant Garamond",Georgia,serif; font-size:1.6rem; font-weight:600; margin:0 0 6px; }
+  .stop { padding:14px 4px 6px; }
+  .stop .time { color:var(--gold); font-size:.85rem; letter-spacing:.2em; font-weight:500; }
+  .stop b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.45rem; font-weight:600; margin:4px 0; }
+  .stop span { display:block; color:var(--muted); font-size:.95rem; }
+  .links { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:10px; }
+  a.btn, .btn.small { text-decoration:none; font-size:.9rem; padding:8px 14px; margin:0; }
+  .note { color:var(--muted); font-size:.95rem; margin:10px 0 0; }
+  .give { border:1px solid var(--line); border-radius:12px; padding:16px 14px; margin:22px 0 4px; }
+  .give b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.35rem; color:var(--gold); margin-bottom:6px; }
+  .give p { color:var(--muted); margin:0 0 12px; font-size:.95rem; }
+  .actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:20px 0 4px; }
+  .food { padding:12px 6px 8px; }
+  .food b { display:block; font-family:"Cormorant Garamond",Georgia,serif; font-size:1.45rem; font-weight:600; }
+  .food span { color:var(--muted); font-size:.95rem; font-style:italic; }
+  .pick input { width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--text); font:inherit; margin:6px 0 4px; }
+  .pick .stack { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .pick .stack .btn { margin:0; }
   .cheers { font-family:"Cormorant Garamond",Georgia,serif; color:var(--gold); font-style:italic; font-size:1.2rem; margin-top:26px; opacity:.9; }
 </style>
 </head>
 <body>
 <button class="back" id="backApp" hidden>‹ Back to my app</button>
 <main id="m"><p class="err">Loading menu…</p></main>
+<div class="pick" id="rsvp" hidden><div><span class="hint">RSVP</span><b id="rsvpTitle"></b>
+  <label class="hint" for="rsvpName">Your name</label><input id="rsvpName" autocomplete="name" placeholder="First and last name">
+  <p class="stack"><button class="btn" data-rsvp="yes">Count me in</button><button class="btn ghost" data-rsvp="no">Sorry, I can’t make it</button><button class="btn ghost" id="rsvpBack">Back</button></p></div></div>
 <div class="pick" id="pick" hidden><div><span class="hint">Your pick</span><b id="pickName"></b><p class="hint">Show this to your host.</p>
   <button class="btn" id="tell">Text my pick</button><button class="btn ghost" id="back">Back to menu</button></div></div>
 <script>
@@ -67,6 +90,78 @@
   const FAN = '<svg class="fan" viewBox="0 0 120 60" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.2"><line x1="60" y1="56" x2="106.4" y2="43.6"/><line x1="60" y1="56" x2="101.6" y2="32.0"/><line x1="60" y1="56" x2="93.9" y2="22.1"/><line x1="60" y1="56" x2="84.0" y2="14.4"/><line x1="60" y1="56" x2="72.4" y2="9.6"/><line x1="60" y1="56" x2="60.0" y2="8.0"/><line x1="60" y1="56" x2="47.6" y2="9.6"/><line x1="60" y1="56" x2="36.0" y2="14.4"/><line x1="60" y1="56" x2="26.1" y2="22.1"/><line x1="60" y1="56" x2="18.4" y2="32.0"/><line x1="60" y1="56" x2="13.6" y2="43.6"/><path d="M8 56 A52 52 0 0 1 112 56"/><path d="M24 56 A36 36 0 0 1 96 56"/></g><circle cx="60" cy="56" r="4" fill="currentColor"/></svg>';
   const RULE = '<svg class="rule" viewBox="0 0 240 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="8" x2="96" y2="8"/><line x1="144" y1="8" x2="240" y2="8"/><path d="M104 8 L110 2 L116 8 L110 14 Z"/><path d="M124 8 L130 2 L136 8 L130 14 Z"/></g><circle cx="120" cy="8" r="2.5" fill="currentColor"/></svg>';
   const DOT = '<svg class="dot" viewBox="0 0 20 10" aria-hidden="true"><path d="M10 0 L13 5 L10 10 L7 5 Z" fill="currentColor"/></svg>';
+  const fmtTime = (t) => { const x = /^(\d{1,2}):(\d{2})$/.exec(t || ''); if (!x) return t || ''; const h = +x[1]; return `${h % 12 || 12}:${x[2]} ${h < 12 ? 'AM' : 'PM'}`; };
+  const ymd = (d) => /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
+  const fmtDate = (d) => { const x = ymd(d); return x ? new Date(+x[1], x[2] - 1, +x[3]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''; };
+  const iOS = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+  const mapUrl = (a) => (iOS ? 'https://maps.apple.com/?q=' : 'https://www.google.com/maps/search/?api=1&query=') + encodeURIComponent(a);
+  const uberUrl = (a) => 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=' + encodeURIComponent(a);
+  function party(data) {
+    document.title = data.t + ' · Invite';
+    const stops = data.st || [], fh = data.fh || ['Bites', 'Sweets', 'Cocktails'];
+    const foods = (sweet) => (data.f || []).filter(([s]) => !!s === sweet);
+    const list = (head, rows) => (rows.length ? `<div class="sec">${esc(head)}</div>` + rows.join('') : '');
+    const food = (rows) => rows.map(([, n, d], i) => `${i ? DOT : ''}<div class="food"><b>${esc(n)}</b>${d ? `<span>${esc(d)}</span>` : ''}</div>`);
+    const drink = (rows) => rows.map(([n, d, z], i) => `${i ? DOT : ''}<button class="drink" data-name="${esc(n)}"><b>${esc(n)}</b>${z ? '<em class="zp">zero proof</em>' : ''}<span>${esc(d)}</span></button>`);
+    const d = data.d || [];
+    m.innerHTML = `${FAN}<p class="kick">You’re invited</p><h1>${esc(data.t)}</h1>${data.h ? `<p class="host">Hosted by ${esc(data.h)}</p>` : ''}${RULE}
+      ${data.dt ? `<p class="date">${esc(fmtDate(data.dt))}</p>` : ''}
+      ${stops.map(([t, what, place, addr], i) => `${i ? DOT : ''}<div class="stop">${t ? `<div class="time">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span>${esc(addr)}</span><div class="links"><a class="btn ghost" href="${esc(mapUrl(addr))}" target="_blank" rel="noopener">Map</a>${i ? `<a class="btn ghost" href="${esc(uberUrl(addr))}" target="_blank" rel="noopener">Get an Uber</a>` : ''}</div>` : ''}</div>`).join('')}
+      ${data.go ? `<p class="note">${esc(data.go)}</p>` : ''}
+      <div class="actions"><button class="btn" id="rsvpBtn">RSVP</button>${ymd(data.dt) && stops[0] && stops[0][0] ? '<button class="btn ghost" id="calBtn">Add to my calendar</button>' : ''}</div>
+      ${data.rb ? `<p class="note">Please RSVP by ${esc(data.rb)}</p>` : ''}
+      ${data.gv ? `<div class="give"><b>${esc(data.gv[0])}</b><p>${esc(data.gv[1])}</p><a class="btn" href="${esc(data.gv[2])}" target="_blank" rel="noopener">${esc(data.gv[3])}</a></div>` : ''}
+      ${(data.f || []).length || d.length ? `${RULE}<p class="kick">The menu</p>` : ''}
+      ${list(fh[0], food(foods(false)))}${list(fh[1], food(foods(true)))}
+      ${list(fh[2], drink(d.filter((x) => !x[2])))}${list('Zero proof', drink(d.filter((x) => x[2])))}
+      ${d.length ? '<p class="hint" style="margin-top:14px">At the party, tap a drink to choose it.</p>' : ''}
+      ${RULE}<div class="cheers">See you there</div>`;
+    // Picking a drink, same as the cocktail menu
+    const pick = document.getElementById('pick');
+    let chosen = '';
+    m.querySelectorAll('.drink').forEach((b) => b.addEventListener('click', () => { chosen = b.dataset.name; document.getElementById('pickName').textContent = chosen; pick.hidden = false; }));
+    document.getElementById('back').onclick = () => { pick.hidden = true; };
+    document.getElementById('tell').onclick = async () => {
+      const text = `I'd love ${/^[aeiou]/i.test(chosen) ? 'an' : 'a'} ${chosen}, please!`;
+      try { if (navigator.share) return await navigator.share({ text }); } catch (e) { return; }
+      location.href = 'sms:?&body=' + encodeURIComponent(text);
+    };
+    // RSVP goes out as a text from the guest's own phone
+    const rs = document.getElementById('rsvp'), nameIn = document.getElementById('rsvpName');
+    try { nameIn.value = localStorage.getItem('al-rsvp-name') || ''; } catch (e) { /* private mode */ }
+    document.getElementById('rsvpTitle').textContent = data.t;
+    document.getElementById('rsvpBtn').onclick = () => { rs.hidden = false; };
+    document.getElementById('rsvpBack').onclick = () => { rs.hidden = true; };
+    rs.querySelectorAll('[data-rsvp]').forEach((b) => b.addEventListener('click', async () => {
+      const who = nameIn.value.trim();
+      if (!who) { nameIn.focus(); nameIn.placeholder = 'Please type your name first'; return; }
+      try { localStorage.setItem('al-rsvp-name', who); } catch (e) { /* private mode */ }
+      const hi = data.h ? `Hi ${data.h}, it’s ${who}.` : `Hi, it’s ${who}.`;
+      const when = data.dt ? ` on ${fmtDate(data.dt)}` : '';
+      const text = b.dataset.rsvp === 'yes' ? `${hi} Count me in for the ${data.t}${when}!` : `${hi} I’m sorry, I can’t make the ${data.t}${when}.`;
+      if (data.rs) { location.href = `sms:${data.rs}${iOS ? '&' : '?'}body=${encodeURIComponent(text)}`; return; }
+      try { if (navigator.share) return await navigator.share({ text }); } catch (e) { return; }
+      location.href = 'sms:?&body=' + encodeURIComponent(text);
+    }));
+    // A calendar file for the whole evening, from the first stop to the last one
+    const cal = document.getElementById('calBtn');
+    if (cal) cal.onclick = () => {
+      const x = ymd(data.dt), day = x[1] + x[2] + x[3];
+      const t = (s) => { const y = /^(\d{1,2}):(\d{2})$/.exec(s || ''); return y ? `${day}T${y[1].padStart(2, '0')}${y[2]}00` : ''; };
+      const start = t(stops[0][0]);
+      const lastT = t(stops[stops.length - 1][0]);
+      const end = lastT && lastT > start ? lastT : start.replace(/T(\d{2})/, (_, h) => `T${String(Math.min(23, +h + 3)).padStart(2, '0')}`);
+      const ic = (s) => String(s || '').replace(/[\\,;]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+      const desc = stops.map(([tm, what, place, addr]) => [fmtTime(tm), what, place, addr].filter(Boolean).join(', ')).concat(data.go ? [data.go] : []).join('\n') + '\n\n' + location.href;
+      const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Artemis Lounge//Party//EN', 'BEGIN:VEVENT', `UID:${day}-${Math.random().toString(36).slice(2)}@artemis-lounge`,
+        `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}Z`, `DTSTART:${start}`, `DTEND:${end}`, `SUMMARY:${ic(data.t)}`,
+        `LOCATION:${ic(stops[0][3] || stops[0][2])}`, `DESCRIPTION:${ic(desc)}`, 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+      a.download = data.t.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') + '.ics';
+      document.body.appendChild(a); a.click(); a.remove();
+    };
+  }
   try {
     // The host's preview, or the menu opened inside the installed app, gets a way back.
     // Guests who scan the QR in their browser never see it.
@@ -82,6 +177,7 @@
     let bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
     if (kind === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
     const data = JSON.parse(new TextDecoder().decode(bytes));
+    if (data.k === 'party') return party(data);
     if (data.k === 'dinner') {
       document.title = data.t + ' · Dinner Menu';
       m.innerHTML = `${FAN}<h1>${esc(data.t)}</h1>${RULE}` +
