@@ -255,3 +255,17 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu.two .plist .drink { display: inline-block; width: 100%; }
 .pmenu.two .plist .psec { break-after: avoid; }
 .pmenu .psoft span { font-size: 11pt; }
+/* Party invite, printed */
+.pmenu .pkick { font-family: var(--sans); font-size: 9pt; letter-spacing: .3em; text-transform: uppercase; color: #9c8143; margin-bottom: 4px; }
+.pmenu .phost { font-style: italic; font-size: 13pt; color: #555; margin-top: 4px; }
+.pmenu .pdate { font-size: 17pt; font-weight: 600; letter-spacing: .06em; margin-bottom: 12px; }
+.pmenu .pstops { display: flex; justify-content: center; gap: 28px; margin: 0 auto 12px; max-width: 600px; }
+.pmenu .pstop { flex: 1; }
+.pmenu .pstop b { display: block; font-size: 13pt; font-weight: 600; margin: 2px 0; }
+.pmenu .pstop span { display: block; font-family: var(--sans); font-size: 10pt; color: #555; }
+.pmenu .pstop .paddr { font-size: 9pt; color: #777; }
+.pmenu .ptime { font-family: var(--sans); font-size: 10pt; letter-spacing: .2em; color: #9c8143; font-weight: 600; }
+.pmenu .pnote { font-family: var(--sans); font-size: 10pt; color: #555; margin: 4px auto; max-width: 520px; }
+.pmenu .pgive { margin: 12px auto 6px; max-width: 480px; border: 1px solid #c9b27a; padding: 8px 14px; }
+.pmenu .pgive b { display: block; font-size: 12pt; font-weight: 600; color: #9c8143; }
+.pmenu .pgive span { display: block; font-family: var(--sans); font-size: 9.5pt; color: #555; }

@@ -131,3 +131,92 @@ window.AL_FOOD_STYLES = {
     drinks: ['espresso-martini', 'god-mother', 'sidecar'], neat: ['cognac', 'bourbon', 'amaretto', 'limoncello'], zp: 'zp-espresso-tonic' },
 };
 window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 'Soup or salad': 'greens', 'Main course': 'poultry', 'Cheese': 'cheese', 'Dessert': 'chocolate', 'After dinner': 'digestif' };
+
+// Make-ahead batches for parties. Amounts are for one drink, so the serving
+// buttons on a recipe scale them to the guest count. The cold water stands in
+// for the melt you would get from shaking or stirring with ice, because a
+// bottled drink goes straight from the fridge into the glass.
+(function () {
+  const ING = window.AL_INGREDIENTS;
+  ING['red-wine'] = { label: 'Red Wine', group: 'Wine' };
+  const i = (amt, name, keys, optional) => ({ amt, name, keys, optional: !!optional });
+  const water = (amt) => i(amt, 'Cold water, for dilution', ['water']);
+  const batch = (o) => Object.assign({ base: '', category: 'Batch', difficulty: 'Beginner', source: '', batch: true }, o);
+  window.AL_RECIPES.push(
+    batch({ id: 'batch-mulled-wine', name: 'Mulled Wine', base: 'Wine', category: 'Warm batch', glass: 'Mug', method: 'Warm', garnish: 'Orange slice and a cinnamon stick',
+      guest: 'Red wine gently warmed with orange, cinnamon, cloves and star anise.',
+      keep: 'Make it the day of the party. Warm it an hour before guests arrive and hold it on Warm in a slow cooker.',
+      steps: 'Pour everything into a large pot. Warm over low heat for 20 to 30 minutes and keep it below a simmer so the wine does not boil. Strain out the cloves and star anise, then move it to a slow cooker on Warm. Ladle into mugs. One 750 ml bottle of wine makes about 5 mugs.',
+      ingredients: [i('5 oz', 'Dry red wine, like Merlot or Zinfandel', ['red-wine']), i('½ oz', 'Honey Syrup', ['honey-syrup']), i('½ oz', 'Triple Sec', ['triple-sec'], true),
+        i('1', 'Orange slice', []), i('½', 'Cinnamon stick', []), i('2', 'Whole cloves', []), i('½', 'Star anise pod', [])] }),
+    batch({ id: 'batch-poinsettia', name: 'Poinsettia Sparkler', category: 'Sparkling', glass: 'Champagne Flute', method: 'Build', garnish: 'A few fresh cranberries',
+      guest: 'Cranberry and orange liqueur topped with Prosecco.',
+      keep: 'Bottle the cranberry base up to 3 days ahead. Add the Prosecco only when you pour.',
+      steps: 'Stir the cranberry juice and triple sec together and funnel into a clean bottle. Cap and chill. To serve, pour 2½ oz of the cold base into a flute and top with cold Prosecco.',
+      ingredients: [i('2 oz', 'Cranberry Juice', ['cranberry-juice']), i('½ oz', 'Triple Sec', ['triple-sec']), i('3 oz', 'Prosecco, added when you pour', ['sparkling-wine'])] }),
+    batch({ id: 'batch-christmas-cosmo', name: 'Christmas Cosmo', base: 'Vodka', glass: 'Martini Glass', method: 'Bottle', garnish: 'Orange twist or sugared cranberries',
+      guest: 'Vodka, orange liqueur, cranberry and lime.',
+      keep: 'Best within 2 days because of the lime juice.',
+      steps: 'Stir everything, including the water, in a pitcher. Funnel into a clean bottle, cap it and chill at least 4 hours. Shake the bottle before pouring into chilled glasses. No ice needed.',
+      ingredients: [i('1½ oz', 'Vodka', ['vodka']), i('¾ oz', 'Triple Sec', ['triple-sec']), i('1½ oz', 'Cranberry Juice', ['cranberry-juice']), i('½ oz', 'Lime Juice', ['lime-juice']), water('¾ oz')] }),
+    batch({ id: 'batch-peppermint-martini', name: 'Peppermint Bark Martini', base: 'Vodka', category: 'Dessert', glass: 'Martini Glass', method: 'Bottle', garnish: 'Crushed candy cane rim',
+      guest: 'Peppermint vodka, chocolate liqueur and cream.',
+      keep: 'Make it 1 day ahead. The cream keeps it short, so use it within 2 days.',
+      steps: 'Stir everything, including the water, in a pitcher. Funnel into a clean bottle, cap it and chill at least 4 hours. Shake the bottle hard before each pour, since the cream settles. Pour into chilled glasses with a crushed candy cane rim.',
+      ingredients: [i('1½ oz', 'Peppermint vodka, like Smirnoff Peppermint Twist', ['vodka']), i('1 oz', 'Chocolate Liqueur', ['chocolate-liqueur']), i('1 oz', 'Heavy Cream', ['heavy-cream']), water('½ oz'), i('', 'Crushed candy canes for the rim', [], true)] }),
+    batch({ id: 'batch-holiday-negroni', name: 'Holiday Negroni', base: 'Gin', category: 'Spirit-Forward', glass: 'Rocks Glass', method: 'Bottle', garnish: 'Orange peel',
+      guest: 'Gin, Campari and sweet vermouth, bitter and bright red.',
+      keep: 'Keeps at least a week in the fridge, so you can make it early.',
+      steps: 'Stir everything, including the water, in a pitcher. Funnel into a clean bottle, cap it and chill at least 4 hours. Pour over one large ice cube and add an orange peel.',
+      ingredients: [i('1 oz', 'Gin', ['gin']), i('1 oz', 'Campari', ['campari']), i('1 oz', 'Sweet Vermouth', ['sweet-vermouth']), water('¾ oz')] }),
+    batch({ id: 'batch-apple-manhattan', name: 'Apple Bourbon Manhattan', base: 'Whiskey', category: 'Spirit-Forward', glass: 'Coupe or Rocks Glass', method: 'Bottle', garnish: 'Thin apple slice or a cherry',
+      guest: 'Apple bourbon and sweet vermouth with a dash of bitters.',
+      keep: 'Keeps at least a week in the fridge, so you can make it early.',
+      steps: 'Stir everything, including the water, in a pitcher. Funnel into a clean bottle, cap it and chill at least 4 hours. Pour into chilled glasses, or over one large ice cube.',
+      ingredients: [i('2 oz', 'Apple bourbon, like Jim Beam Apple', ['bourbon']), i('1 oz', 'Sweet Vermouth', ['sweet-vermouth']), i('2 dashes', 'Angostura Bitters', ['angostura']), water('¾ oz')] }),
+    batch({ id: 'batch-zp-cran-rosemary', name: 'Cranberry Rosemary Fizz', base: 'Zero Proof', category: 'Mocktail', zeroProof: true, glass: 'Wine Glass', method: 'Build', garnish: 'Rosemary sprig and fresh cranberries',
+      guest: 'Cranberry, lime and rosemary topped with bubbles.',
+      keep: 'Bottle it up to 2 days ahead. Add the club soda only when you pour.',
+      steps: 'Stir the cranberry juice, lime juice and syrup together and funnel into a clean bottle. Drop in a rosemary sprig if you have one. Cap and chill. To serve, pour 4 oz over ice and top with club soda.',
+      ingredients: [i('3 oz', 'Cranberry Juice', ['cranberry-juice']), i('½ oz', 'Lime Juice', ['lime-juice']), i('½ oz', 'Simple Syrup', ['simple-syrup']), i('2 oz', 'Club soda, added when you pour', ['club-soda']), i('1 sprig', 'Fresh rosemary', [], true)] }),
+    batch({ id: 'batch-zp-snow-spritz', name: 'Snowfall Spritz', base: 'Zero Proof', category: 'Mocktail', zeroProof: true, glass: 'Wine Glass', method: 'Build', garnish: 'Fresh cranberries and a rosemary sprig',
+      guest: 'White cranberry, lemon and honey topped with bubbles.',
+      keep: 'Bottle it up to 2 days ahead. Add the club soda only when you pour.',
+      steps: 'Stir the white cranberry juice, lemon juice and honey syrup together and funnel into a clean bottle. Cap and chill. To serve, pour 4 oz over ice and top with club soda.',
+      ingredients: [i('3 oz', 'White cranberry juice', []), i('½ oz', 'Lemon Juice', ['lemon-juice']), i('½ oz', 'Honey Syrup', ['honey-syrup']), i('2 oz', 'Club soda, added when you pour', ['club-soda'])] }),
+    batch({ id: 'batch-zp-warm-punch', name: 'Warm Spiced Cranberry Punch', base: 'Zero Proof', category: 'Mocktail', zeroProof: true, glass: 'Mug', method: 'Warm', garnish: 'Orange slice and a cinnamon stick',
+      guest: 'Cranberry and pineapple warmed with cinnamon and cloves.',
+      keep: 'Mix it up to 2 days ahead and keep it in the fridge. Warm it in a slow cooker next to the mulled wine.',
+      steps: 'Stir everything in a pot and warm over low heat for 20 minutes. Strain out the cloves, then hold it on Warm in a slow cooker. Ladle into mugs. A second slow cooker keeps it apart from the mulled wine.',
+      ingredients: [i('3 oz', 'Cranberry Juice', ['cranberry-juice']), i('2 oz', 'Pineapple Juice', ['pineapple-juice']), i('½ oz', 'Honey Syrup', ['honey-syrup']),
+        i('1', 'Orange slice', [], true), i('½', 'Cinnamon stick', []), i('2', 'Whole cloves', [])] }),
+  );
+
+  // Ready-made parties she can start from on the Party screen
+  window.AL_PARTY_PRESETS = [{
+    label: 'Holiday Cocktail Party, Dec 5',
+    party: {
+      title: 'Holiday Cocktail Party', hosts: 'Morgan & Kelly', date: '2026-12-05', guests: 10,
+      stops: [
+        { time: '17:00', what: 'Cocktails and hors d’oeuvres with holiday treats', place: 'Riverwalk apartment', addr: '111 W. Jones Ave, San Antonio, TX 78215' },
+        { time: '20:00', what: 'Holiday dancing', place: 'Thirsty Horse Dance Hall & Saloon', addr: '2335 NW Military Hwy, San Antonio, TX 78231' },
+      ],
+      travel: 'Drive or take an Uber between the Riverwalk and Thirsty Horse.',
+      give: { title: 'In the spirit of giving back', note: 'Pick a gift from our Angel Tree child list. You shop online, and Walmart gets the gifts to the Salvation Army.', url: 'https://www.walmart.com/registry/RR/160dd9a7-4a7e-423e-9354-420356a1cbad', btn: 'Shop the Angel Tree list' },
+      rsvpPhone: '', rsvpBy: '',
+      foodHead: 'Savory Hors d’Oeuvres', sweetHead: 'Christmas Desserts', drinkHead: 'Christmas Cocktails',
+      food: [
+        { sweet: false, name: 'Mini Beef Wellingtons', desc: 'Tender beef, mushroom duxelles and golden puff pastry', qty: '20 pieces' },
+        { sweet: false, name: 'Bacon-Wrapped Dates', desc: 'Medjool dates stuffed with goat cheese and wrapped in crispy bacon', qty: '20 pieces' },
+        { sweet: false, name: 'Cranberry-Orange Cocktail Meatballs', desc: 'Tender meatballs in a glossy cranberry-orange rosemary glaze', qty: '25 pieces' },
+        { sweet: false, name: 'Christmas Cheese Board', desc: 'Brie, aged cheddar, manchego, salami, grapes, pomegranate, candied pecans, fig jam and crackers', qty: '1 medium board' },
+        { sweet: false, name: 'Christmas Antipasto Skewers', desc: 'Cheese tortellini, mozzarella, roasted red peppers, basil and olives with Italian vinaigrette', qty: '20 skewers' },
+        { sweet: false, name: 'Herbed Cheese-Stuffed Mini Peppers', desc: 'Sweet peppers filled with whipped herb cheese, Boursin, chives and lemon zest', qty: '20 halves' },
+        { sweet: true, name: 'White Chocolate-Dipped Shortbread', desc: '', qty: '20 cookies' },
+        { sweet: true, name: 'Mini Gingerbread Cheesecakes', desc: '', qty: '12 pieces' },
+        { sweet: true, name: 'Homemade Peppermint Bark', desc: '', qty: '20 to 24 pieces' },
+      ],
+      drinks: ['batch-mulled-wine'],
+    },
+  }];
+})();
