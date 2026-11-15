@@ -299,3 +299,22 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu .prsvp .plink { display: inline-block; margin: 2px 0; font-weight: 600; color: #9c8143; text-decoration: underline; }
 .pmenu .prsvp span { display: block; }
 .pmenu .prsvp span a { text-decoration: underline; }
+/* Mid-century modern holiday look for the printed party page */
+.pmenu.mcm { --mt: #2f7d74; --mr: #c8432b; --mm: #e2a52a; --ms: #6b6355; --mi: #2a2723; color: var(--mi); font-family: "Josefin Sans", var(--sans); }
+.pmenu.mcm .pframe { background: #fcf6e8; border: 3px solid var(--mt); outline: 0; border-radius: 22px; box-shadow: 7px 7px 0 var(--mm); }
+.pmenu.mcm .mtree { display: block; width: 92px; margin: 0 auto 6px; }
+.pmenu.mcm .mrule { display: block; width: 210px; margin: 10px auto 14px; }
+.pmenu.mcm .mdot { display: block; width: 12px; margin: 0 auto 10px; }
+.pmenu.mcm h1 { font-family: "Josefin Sans", var(--sans); font-weight: 700; color: var(--mt); letter-spacing: .1em; font-size: 30pt; }
+.pmenu.mcm .pkick { font-family: "Josefin Sans", var(--sans); font-weight: 700; color: var(--mr); letter-spacing: .32em; }
+.pmenu.mcm .phost { font-family: "Josefin Sans", var(--sans); font-style: normal; color: var(--ms); letter-spacing: .06em; font-size: 12pt; }
+.pmenu.mcm .pdate { font-family: "Josefin Sans", var(--sans); color: var(--mi); }
+.pmenu.mcm .ptime { display: inline-block; background: var(--mr); color: #fffaf0; border-radius: 999px; padding: 2px 10px 1px; letter-spacing: .14em; font-family: "Josefin Sans", var(--sans); font-weight: 700; }
+.pmenu.mcm .pstop b, .pmenu.mcm .drink b { font-family: "Josefin Sans", var(--sans); font-weight: 600; color: var(--mi); }
+.pmenu.mcm .drink span { color: var(--ms); }
+.pmenu.mcm .pgive { background: #fdf1d6; border: 2px dashed var(--mm); border-radius: 14px; }
+.pmenu.mcm .pgive b, .pmenu.mcm .prsvp b { font-family: "Josefin Sans", var(--sans); font-weight: 700; color: var(--mr); letter-spacing: .08em; }
+.pmenu.mcm .plink { color: var(--mt); }
+.pmenu.mcm .psec { font-family: "Josefin Sans", var(--sans); font-weight: 700; color: var(--mr); font-size: 10.5pt; letter-spacing: .26em; }
+.pmenu.mcm .psec::before, .pmenu.mcm .psec::after { background: var(--mt); height: 1.5px; }
+.pmenu.mcm .drink b i { color: var(--mt); }
