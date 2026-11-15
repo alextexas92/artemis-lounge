@@ -1739,6 +1739,7 @@
       ${drinks.map((r) => { const c = check(r, have); return `<div class="menu-item"><button class="card" data-precipe="${esc(r.id)}"><div class="title">${esc(r.name)}${r.zeroProof ? ' <span class="pill">zero proof</span>' : ''}${r.batch ? ' <span class="pill">batch</span>' : ''}</div>${r.keep ? `<div class="hint">${esc(r.keep)}</div>` : ''}${c.ok ? '' : `<div class="miss">Need: ${esc(c.missing.map((m) => m.keys.length ? label(m.keys[0]) : m.name).join(', '))}</div>`}<div class="hint">Tap for the recipe for ${P.guests || 10}</div></button>
         <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`; }).join('')}
       <div class="btn-row"><button class="btn primary" id="pShare">Guest link &amp; QR</button><button class="btn" id="pPrint">Print</button></div>
+      <label class="check"><input type="checkbox" id="pQR" ${P.printQR ? 'checked' : ''}><span class="grow">Show a QR code on the printed page</span></label>
       <button class="btn block" id="pPrep">📝 Send my prep list</button>
       <button class="btn small danger" id="pClear" style="margin-top:12px">Delete this party</button>`;
     v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
@@ -1766,6 +1767,7 @@
     $('#pShare', v).onclick = shareParty;
     $('#pPrint', v).onclick = printParty;
     $('#pPrep', v).onclick = sharePrep;
+    $('#pQR', v).onchange = (e) => { P.printQR = e.target.checked; save(); };
     $('#pClear', v).onclick = () => { if (confirm(`Delete ${P.title}? This can’t be undone.`)) { state.parties = partyList().filter((x) => x !== P); ui.partyId = null; save(); render(); } };
   }
   function pickPartyDrinks() {
@@ -1826,13 +1828,13 @@
       ${d.dt ? `<div class="pdate">${esc(fmtDate(d.dt))}</div>` : ''}
       <div class="pstops">${d.st.map(([t, what, place, addr]) => `<div class="pstop">${t ? `<div class="ptime">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span class="paddr">${esc(addr)}</span>` : ''}</div>`).join('')}</div>
       ${d.go ? `<div class="pnote">${esc(d.go)}</div>` : ''}
-      ${d.gv ? `<div class="pgive"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])} Scan the code below to find the list.</span></div>` : ''}
+      ${d.gv ? `<div class="pgive"><b>${esc(d.gv[0])}</b><span>${esc(d.gv[1])} ${curParty().printQR ? 'Scan the code below to find the list.' : 'You’ll find the link in your invite.'}</span></div>` : ''}
       ${d.rb ? `<div class="pnote">Please RSVP by ${esc(d.rb)}</div>` : ''}
       ${P_RULE}
       <div class="pcols">${foods(false).length ? `<div class="pcol">${sec(d.fh[0], foods(false).map(([, n, ds]) => [n, ds]))}</div>` : ''}${d.d.length ? `<div class="pcol">${sec(d.fh[2], ck)}${sec('Zero proof', zp)}</div>` : ''}</div>
       ${foods(true).length ? `<div class="psweet"><div class="psec">${esc(d.fh[1])}</div><div class="prow">${foods(true).map(([, n, ds]) => `<div class="drink"><b>${esc(n)}</b>${ds ? `<span>${esc(ds)}</span>` : ''}</div>`).join('')}</div></div>` : ''}
-      ${P_RULE}<div class="foot"><div>Scan for the invite, RSVP and menu</div><div id="pqr" class="pqr"></div></div></div></div>`;
-    $('#pqr').dataset.qr = url;
+      ${P_RULE}${curParty().printQR ? '<div class="foot"><div>Scan for the invite, RSVP and menu</div><div id="pqr" class="pqr"></div></div>' : ''}</div></div>`;
+    if (curParty().printQR) $('#pqr').dataset.qr = url;
     readyToPrint(d.t);
   }
   // Her own checklist: how much food to make and the batch amounts for the guest count
@@ -1925,7 +1927,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '41';
+  const APP_VERSION = '42';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
