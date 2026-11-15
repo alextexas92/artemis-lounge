@@ -318,3 +318,5 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu.mcm .psec { font-family: "Josefin Sans", var(--sans); font-weight: 700; color: var(--mr); font-size: 10.5pt; letter-spacing: .26em; }
 .pmenu.mcm .psec::before, .pmenu.mcm .psec::after { background: var(--mt); height: 1.5px; }
 .pmenu.mcm .drink b i { color: var(--mt); }
+.pmenu.mcm .pstop .prides { display: block; margin-top: 3px; font-family: var(--sans); font-size: 9pt; color: var(--ms); }
+.pmenu.mcm .pstop .prides a { color: var(--mt); font-weight: 600; text-decoration: underline; }
