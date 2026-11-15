@@ -393,6 +393,14 @@
     if (r.steps) lines.push('', r.steps);
     return lines.join('\n');
   }
+  // Links go out on their own so Messages shows the picture card instead of a long web address
+  async function shareLink(title, url) {
+    try {
+      if (navigator.share) { await navigator.share({ title, url }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(url); toast('Link copied. Paste it in a text.'); }
+    catch (e) { prompt('Copy this link:', url); }
+  }
   async function shareText(title, text) {
     try {
       if (navigator.share) { await navigator.share({ title, text }); return; }
@@ -1313,7 +1321,7 @@
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
     try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
-    $('#sendLink').onclick = () => shareText(state.menu.title, `${state.menu.title}: tonight’s cocktail menu\n${url}`);
+    $('#sendLink').onclick = () => shareLink(state.menu.title, url);
   }
 
   // Art deco trim for printed menus: sunburst crest, diamond rules, small diamonds between items
@@ -1618,7 +1626,7 @@
       <div style="text-align:center"><div class="qr" id="qrBox"></div></div>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
     try { await makeQR($('#qrBox'), url, Math.min(320, innerWidth - 60)); } catch (e) { $('#qrBox').textContent = 'The QR code could not be made. Use Send link instead.'; }
-    $('#sendLink').onclick = () => shareText(state.dinner.title, `${state.dinner.title}\n${url}`);
+    $('#sendLink').onclick = () => shareLink(state.dinner.title, url);
   }
   async function printDinner() {
     const d = dinnerData();
@@ -1812,10 +1820,11 @@
   }
   async function shareParty() {
     const P = curParty(), url = await encodeMenu(partyData());
-    openSheet(`<h2>Party invite</h2><p class="hint">Text guests the link. They see the invite, RSVP and the menu. No app or account needed.</p>
+    const pr = P.preset && (window.AL_PARTY_PRESETS || []).find((x) => x.id === P.preset);
+    const link = url.replace('menu.html#', `${(pr && pr.page) || 'invite.html'}#`);
+    openSheet(`<h2>Party invite</h2><p class="hint">Text guests the link. It shows up as a picture card they tap to open the invite, RSVP and menu. No app or account needed.</p>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
-    const when = [fmtDate(P.date), P.stops[0] && fmtTime(P.stops[0].time)].filter(Boolean).join(' at ');
-    $('#sendLink').onclick = () => shareText(P.title, `You’re invited to our ${P.title}${when ? `, ${when}` : ''}. Details, RSVP and the menu are here:\n${url}`);
+    $('#sendLink').onclick = () => shareLink(P.title, link);
   }
   // Mid-century holiday trim for the printed party page
   // RT in a Santa hat, drawn from a photo
@@ -1936,7 +1945,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '53';
+  const APP_VERSION = '54';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
