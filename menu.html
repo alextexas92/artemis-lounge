@@ -134,7 +134,8 @@
   const ymd = (d) => /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || '');
   const fmtDate = (d) => { const x = ymd(d); return x ? new Date(+x[1], x[2] - 1, +x[3]).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : ''; };
   const iOS = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
-  const mapUrl = (a) => (iOS ? 'https://maps.apple.com/?q=' : 'https://www.google.com/maps/search/?api=1&query=') + encodeURIComponent(a);
+  // Google Maps on every phone. It opens the Google Maps app when it's installed.
+  const mapUrl = (a) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a);
   // Uber takes the address. Lyft and Waymo open their app or site, and guests paste the copied address.
   const LYFT = 'https://lyft.com/ride?id=lyft', WAYMO = 'https://waymo.com/';
   const uberUrl = (a) => 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=' + encodeURIComponent(a);
@@ -151,7 +152,7 @@
     const d = data.d || [];
     m.innerHTML = `${FAN}<p class="kick">You’re invited</p><h1>${esc(data.t)}</h1>${data.h ? `<p class="host">Hosted by ${esc(data.h)}</p>` : ''}${RULE}
       ${data.dt ? `<p class="date">${esc(fmtDate(data.dt))}</p>` : ''}
-      ${stops.map(([t, what, place, addr], i) => `${i ? DOT : ''}<div class="stop">${t ? `<div class="time">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span>${esc(addr)}</span><div class="links"><a class="btn ghost" href="${esc(mapUrl(addr))}" target="_blank" rel="noopener">Map</a><button class="btn ghost" data-copy="${esc(addr)}">Copy address</button></div><div class="rides"><span>Get a ride</span><a href="${esc(uberUrl(addr))}" target="_blank" rel="noopener">Uber</a><a href="${LYFT}" target="_blank" rel="noopener">Lyft</a><a href="${WAYMO}" target="_blank" rel="noopener">Waymo</a></div>` : ''}</div>`).join('')}
+      ${stops.map(([t, what, place, addr], i) => `${i ? DOT : ''}<div class="stop">${t ? `<div class="time">${esc(fmtTime(t))}</div>` : ''}${what ? `<b>${esc(what)}</b>` : ''}${place ? `<span>${esc(place)}</span>` : ''}${addr ? `<span>${esc(addr)}</span><div class="links"><a class="btn ghost" href="${esc(mapUrl(addr))}" target="_blank" rel="noopener">Google Maps</a><button class="btn ghost" data-copy="${esc(addr)}">Copy address</button></div><div class="rides"><span>Rideshare</span><a href="${esc(uberUrl(addr))}" target="_blank" rel="noopener">Uber</a><a href="${LYFT}" target="_blank" rel="noopener">Lyft</a><a href="${WAYMO}" target="_blank" rel="noopener">Waymo</a></div>` : ''}</div>`).join('')}
       ${data.go ? `<p class="note">${esc(data.go)}</p>` : ''}
       <div class="actions"><button class="btn" id="rsvpBtn">RSVP</button>${ymd(data.dt) && stops[0] && stops[0][0] ? '<button class="btn ghost" id="calBtn">Add to my calendar</button>' : ''}</div>
       ${data.rb ? `<p class="note">Please RSVP by ${esc(data.rb)}</p>` : ''}
