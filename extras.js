@@ -203,7 +203,7 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
         { time: '20:00', what: 'Holiday dancing', place: 'Thirsty Horse Dance Hall & Saloon', addr: '2335 NW Military Hwy, San Antonio, TX 78231' },
       ],
       travel: 'Rideshare between the Riverwalk and Thirsty Horse.',
-      give: { title: 'In the spirit of giving back', note: 'Pick a gift from our Angel Tree child list. You shop online, and Walmart gets the gifts to the Salvation Army.', url: 'https://www.walmart.com/registry/RR/160dd9a7-4a7e-423e-9354-420356a1cbad', btn: 'Shop the Angel Tree list' },
+      give: { title: 'In the spirit of giving back', note: 'Pick a gift from the Angel Tree registry. You shop online, and Walmart gets the gifts to the Salvation Army here in San Antonio.', url: 'https://www.walmart.com/registry/RR/160dd9a7-4a7e-423e-9354-420356a1cbad', btn: 'Shop the Angel Tree registry' },
       rsvpPhone: '', rsvpBy: '',
       foodHead: 'Savory Hors d’Oeuvres', sweetHead: 'Christmas Desserts', drinkHead: 'Christmas Cocktails',
       food: [

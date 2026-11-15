@@ -1660,7 +1660,7 @@
       if (pr && !state.party.preset) state.party.preset = pr.id;
       state.party.id = state.party.id || uid(); state.parties.push(state.party); ui.partyId = state.party.id; delete state.party; save(); }
     // The Dec 5 travel note changed to Rideshare. Update parties still holding the old words.
-    state.parties.forEach((x) => { if (x.travel === 'Drive or take an Uber between the Riverwalk and Thirsty Horse.') { x.travel = 'Rideshare between the Riverwalk and Thirsty Horse.'; save(); } (x.stops || []).forEach((s) => { if (s.place === 'Riverwalk apartment') { s.place = 'Riverwalk'; save(); } }); });
+    state.parties.forEach((x) => { if (x.travel === 'Drive or take an Uber between the Riverwalk and Thirsty Horse.') { x.travel = 'Rideshare between the Riverwalk and Thirsty Horse.'; save(); } (x.stops || []).forEach((s) => { if (s.place === 'Riverwalk apartment') { s.place = 'Riverwalk'; save(); } }); if (x.give && x.give.note === 'Pick a gift from our Angel Tree child list. You shop online, and Walmart gets the gifts to the Salvation Army.') { x.give.note = 'Pick a gift from the Angel Tree registry. You shop online, and Walmart gets the gifts to the Salvation Army here in San Antonio.'; if (x.give.btn === 'Shop the Angel Tree list') x.give.btn = 'Shop the Angel Tree registry'; save(); } });
     return state.parties;
   }
   const curParty = () => partyList().find((x) => x.id === ui.partyId);
@@ -1935,7 +1935,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '51';
+  const APP_VERSION = '52';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
