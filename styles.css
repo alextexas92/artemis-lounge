@@ -302,7 +302,7 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 /* Mid-century modern holiday look for the printed party page */
 .pmenu.mcm { --mt: #2f7d74; --mr: #c8432b; --mm: #e2a52a; --ms: #6b6355; --mi: #2a2723; color: var(--mi); font-family: "Josefin Sans", var(--sans); }
 .pmenu.mcm .pframe { background: #fcf6e8; border: 3px solid var(--mt); outline: 0; border-radius: 22px; box-shadow: 7px 7px 0 var(--mm); }
-.pmenu.mcm .mtree { display: block; width: 92px; margin: 0 auto 6px; }
+.pmenu.mcm .mtree { display: block; width: 100px; margin: 0 auto 6px; }
 .pmenu.mcm .mrule { display: block; width: 210px; margin: 10px auto 14px; }
 .pmenu.mcm .mdot { display: block; width: 12px; margin: 0 auto 10px; }
 .pmenu.mcm h1 { font-family: "Josefin Sans", var(--sans); font-weight: 700; color: var(--mt); letter-spacing: .1em; font-size: 30pt; }
