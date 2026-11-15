@@ -283,3 +283,8 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu .pcol { flex: 1; min-width: 0; }
 .pmenu .pcol .psec:first-child { margin-top: 0; }
 .pmenu .pcol .psec { margin-top: 22px; }
+/* Giving-back box with its own QR code */
+.pmenu .pgive { display: flex; align-items: center; gap: 16px; text-align: left; max-width: 560px; }
+.pmenu .pgive .pgtext { flex: 1; }
+.pmenu .pgive .pgurl { margin-top: 4px; font-size: 8pt; color: #777; word-break: break-all; }
+.pmenu .pgqr canvas { display: block; }
