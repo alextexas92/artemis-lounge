@@ -274,3 +274,12 @@ img, svg { -webkit-user-drag: none; user-drag: none; }
 .pmenu.two .plist .pkeep { display: inline-block; width: 100%; }
 .pmenu .plist .pkeep .psec { margin-top: 22px; }
 .pmenu .plist > .pkeep:first-child .psec { margin-top: 0; }
+/* Desserts sit centered under both columns on the printed party menu */
+.pmenu .psweet { margin-top: 18px; }
+.pmenu .psweet .prow { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 34px; }
+.pmenu .psweet .drink { margin: 0 0 10px; max-width: 220px; }
+/* Savory food on the left, drinks on the right */
+.pmenu .pcols { display: flex; gap: 40px; align-items: flex-start; }
+.pmenu .pcol { flex: 1; min-width: 0; }
+.pmenu .pcol .psec:first-child { margin-top: 0; }
+.pmenu .pcol .psec { margin-top: 22px; }
