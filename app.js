@@ -1416,12 +1416,16 @@
         for (let r = 0; r < n - 8; r++) for (let k = 0; k < n - 8; k++) if (q.isDark(r, k)) pdf.rect(x0 + (k + 4) * cell, top + 0.15 + (r + 4) * cell, cell, cell, 'F');
       }
       const name = (title || 'Menu').replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-') || 'Menu';
-      return new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' });
+      const file = new File([pdf.output('blob')], `${name}.pdf`, { type: 'application/pdf' });
+      // A picture copy for texting. Messages shows a picture right in the chat, but a PDF only as a file icon.
+      const jpg = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.9));
+      if (jpg) file.picture = new File([jpg], `${name}.jpg`, { type: 'image/jpeg' });
+      return file;
     } finally { area.classList.remove('measure'); if (foot) foot.style.display = ''; }
   }
   async function readyToPrint(title) {
     openSheet(`<h2>Your menu</h2><p class="hint" id="pdfMsg">Making a one-page PDF…</p>
-      <div class="btn-row"><button class="btn primary" id="doPrint" disabled>🖨️ Print or share</button><a class="btn" id="pdfOpen" hidden>Open PDF</a></div>`);
+      <div class="btn-row"><button class="btn primary" id="doPrint" disabled>🖨️ Print or share</button><button class="btn" id="sendPic" hidden>💬 Text as a picture</button><a class="btn" id="pdfOpen" hidden>Open PDF</a></div>`);
     let file;
     try { file = await menuPdf(title); } catch (e) { file = null; }
     const msg = $('#pdfMsg'), btn = $('#doPrint'), open = $('#pdfOpen');
@@ -1442,6 +1446,12 @@
       ? 'Your menu is a one-page PDF. Tap Print or share, then pick Print. You can also save it to Files or send it.'
       : 'Your menu is a one-page PDF. Open it, then print it from there.';
     if (canShare) btn.onclick = () => navigator.share({ files: [file], title: title || 'Menu' }).catch(() => {});
+    const pic = $('#sendPic');
+    if (canShare && file.picture && navigator.canShare({ files: [file.picture] })) {
+      pic.hidden = false;
+      msg.textContent += ' To text it, tap Text as a picture so it shows up right in the chat.';
+      pic.onclick = () => navigator.share({ files: [file.picture] }).catch(() => {});
+    }
     else { btn.textContent = '🖨️ Open to print'; btn.onclick = () => { if (!window.open(url, '_blank')) location.href = url; }; open.hidden = true; }
   }
   // Dinner courses that have a dish go at the bottom of the printed drinks menu
@@ -1946,7 +1956,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '58';
+  const APP_VERSION = '59';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
