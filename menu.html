@@ -166,6 +166,7 @@
       ${data.go ? `<p class="note">${esc(data.go)}</p>` : ''}
       <div class="actions"><button class="btn" id="rsvpBtn">RSVP</button>${ymd(data.dt) && stops[0] && stops[0][0] ? '<button class="btn ghost" id="calBtn">Add to my calendar</button>' : ''}</div>
       ${data.rs ? `<p class="note">or text <a href="sms:${esc(data.rs)}">${esc(fmtPhone(data.rs))}</a></p>` : ''}
+      <p class="note">Feel free to forward this invite. Anyone you send it to can RSVP with their own name.</p>
       ${data.rb ? `<p class="note">Please RSVP by ${esc(data.rb)}</p>` : ''}
       ${data.gv ? `<div class="give"><b>${esc(data.gv[0])}</b><p>${esc(data.gv[1])}</p><a class="btn" href="${esc(data.gv[2])}" target="_blank" rel="noopener">${esc(data.gv[3])}</a></div>` : ''}
       ${(data.f || []).length || d.length ? `${RULE}<p class="kick">The menu</p>` : ''}
