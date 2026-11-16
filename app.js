@@ -1819,9 +1819,11 @@
     return d;
   }
   async function shareParty() {
-    const P = curParty(), url = await encodeMenu(partyData());
+    const P = curParty(), pd = partyData(), url = await encodeMenu(pd);
     const pr = P.preset && (window.AL_PARTY_PRESETS || []).find((x) => x.id === P.preset);
-    const link = url.replace('menu.html#', `${(pr && pr.page) || 'invite.html'}#`);
+    const flat = (o) => JSON.stringify(Object.keys(o).sort().map((k) => [k, o[k]]));
+    const link = pr && pr.short && flat(pd) === flat(pr.short.data) ? new URL(pr.short.path, location.href).href
+      : url.replace('menu.html#', `${(pr && pr.page) || 'invite.html'}#`);
     openSheet(`<h2>Party invite</h2><p class="hint">Text guests the link. It shows up as a picture card they tap to open the invite, RSVP and menu. No app or account needed.</p>
       <div class="btn-row"><button class="btn primary" id="sendLink">Send link</button><a class="btn" href="${esc(url.replace('menu.html#', 'menu.html?preview=1#'))}">Preview</a></div>`);
     $('#sendLink').onclick = () => shareLink(P.title, link);
@@ -1944,7 +1946,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '57';
+  const APP_VERSION = '58';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
