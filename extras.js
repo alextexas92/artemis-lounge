@@ -205,7 +205,7 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
       ],
       travel: 'Rideshare between the Riverwalk and Thirsty Horse.',
       give: { title: 'In the spirit of giving back', note: 'Pick a gift from the Angel Tree registry. You shop online, and Walmart gets the gifts to the Salvation Army here in San Antonio.', url: 'https://www.walmart.com/registry/RR/160dd9a7-4a7e-423e-9354-420356a1cbad', btn: 'Shop the Angel Tree registry' },
-      rsvpPhone: '', rsvpBy: '',
+      rsvpPhone: '910-489-4521', rsvpBy: '',
       foodHead: 'Savory Hors d’Oeuvres', sweetHead: 'Christmas Desserts', drinkHead: 'Christmas Cocktails',
       food: [
         { sweet: false, name: 'Mini Beef Wellingtons', desc: 'Tender beef, mushroom duxelles and golden puff pastry', qty: '20 pieces' },
