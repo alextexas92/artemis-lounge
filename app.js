@@ -1159,7 +1159,7 @@
     if (items.length || soft.length) {
       $('#shareMenu', v).onclick = shareMenu;
       $('#printMenu', v).onclick = printMenu;
-      $('#packBtn', v).onclick = openPacking;
+      $('#packBtn', v).onclick = () => openPacking();
       const pp = $('#printPhotos', v); if (pp) pp.onchange = () => { state.menu.printPhotos = pp.checked; save(); };
       $('#clearMenu', v).onclick = () => { if (confirm('Clear the menu?')) { state.menu.ids = []; state.menu.soft = []; save(); render(); } };
     }
@@ -1183,8 +1183,7 @@
     return /^l$/i.test(m[2]) ? v * 1000 / ML_PER_OZ : /ml/i.test(m[2]) ? v / ML_PER_OZ : v;
   }
   const LEVEL_SHARE = { full: 1, three: 0.75, half: 0.5, low: 0.25, out: 0 };
-  function packingList(n) {
-    const recipes = menuRecipes();
+  function packingList(n, recipes = menuRecipes()) {
     const need = new Map(); // key or name -> { label, oz, other, opt, key }
     recipes.forEach((r) => r.ingredients.forEach((i) => {
       const id = i.keys[0] || 'n:' + i.name.toLowerCase();
@@ -1226,6 +1225,9 @@
       ['Small plate for salt or sugar rims', /rim/.test(anyGarnish)],
       ['Cocktail picks', /olive|cherr|pick/.test(anyGarnish)],
       ['Pitcher for batching', n >= 4],
+      ['Swing-top bottles and a funnel for the make-ahead batches', recipes.some((r) => r.batch && !/slow cooker/i.test(r.keep || ''))],
+      ['Slow cooker and a ladle for the warm drinks', recipes.some((r) => /slow cooker/i.test(r.keep || ''))],
+      ['Mugs for the warm drinks', recipes.some((r) => /slow cooker/i.test(r.keep || ''))],
       ['Cooler with plenty of ice, plus a scoop', true],
       ['Bottle opener and corkscrew', recipes.some((r) => r.ingredients.some((i) => /wine|champagne|prosecco|beer|soda|tonic|ginger/i.test(i.name)))],
       ['Bar towel', true],
@@ -1235,35 +1237,36 @@
     const glasses = Object.entries(glassCount).map(([g, c]) => ({ id: 'w:' + g, label: g, amt: `${c}` }));
     return { bottles, fresh, garnish, tools, glasses };
   }
-  function openPacking() {
-    state.pack = state.pack || { n: 4, done: [] };
-    const P = state.pack;
-    const L = packingList(P.n);
+  // src is tonight's menu by default, or a party: { recipes, title, pack }
+  function openPacking(src) {
+    if (!src || !src.recipes) { state.pack = state.pack || { n: 4, done: [] }; src = { recipes: menuRecipes(), title: `${state.menu.title} packing`, pack: state.pack, intro: `For the ${menuRecipes().length} drinks on tonight’s menu. Tick things off as you pack.` }; }
+    const P = src.pack, recipes = src.recipes;
+    const L = packingList(P.n, recipes);
     const done = new Set(P.done);
     const row = (x) => `<label class="check pack"><input type="checkbox" data-pack="${esc(x.id)}" ${done.has(x.id) ? 'checked' : ''}><span class="grow">${esc(x.label)}${x.opt ? ' <span class="pill">optional</span>' : ''}${x.amt ? `<span class="sub-note">${esc(x.amt)}</span>` : ''}${x.note ? `<span class="sub-note ${x.missing ? 'warn' : ''}">${esc(x.note)}</span>` : ''}</span></label>`;
     const sec = (t, xs) => (xs.length ? `<h3>${t}</h3>${xs.map(row).join('')}` : '');
     openSheet(`<h2>Packing list</h2>
-      <p class="hint">For the ${menuRecipes().length} drinks on tonight’s menu. Tick things off as you pack.</p>
+      <p class="hint">${esc(src.intro)}</p>
       <div class="field">About how many of each drink?<div class="qty big" role="group" aria-label="Drinks of each"><button type="button" id="pkM">−</button><input id="pkN" type="number" inputmode="numeric" min="1" value="${P.n}"><button type="button" id="pkP">+</button></div></div>
       ${sec('Bottles', L.bottles)}${sec('Juices, mixers and fresh', L.fresh)}${sec('Garnishes', L.garnish)}${sec('Bar tools', L.tools)}${sec('Glasses', L.glasses)}
       <div class="btn-row"><button class="btn primary" id="pkShare">Send the list</button><button class="btn" id="pkClear">Untick all</button></div>
       ${L.bottles.some((x) => x.missing) || L.fresh.some((x) => x.missing) ? '<button class="btn block" id="pkShop">Add what you’re missing to Shop</button>' : ''}`);
     const body = $('#sheetBody');
-    const setN = (v) => { P.n = Math.max(1, Math.min(99, v || 1)); save(); openPacking(); };
+    const setN = (v) => { P.n = Math.max(1, Math.min(99, v || 1)); save(); openPacking(src); };
     $('#pkM', body).onclick = () => setN(P.n - 1);
     $('#pkP', body).onclick = () => setN(P.n + 1);
     $('#pkN', body).addEventListener('change', (e) => setN(parseInt(e.target.value, 10)));
     body.querySelectorAll('[data-pack]').forEach((c) => c.addEventListener('change', () => {
       const s2 = new Set(P.done); c.checked ? s2.add(c.dataset.pack) : s2.delete(c.dataset.pack); P.done = [...s2]; save();
     }));
-    $('#pkClear', body).onclick = () => { P.done = []; save(); openPacking(); };
+    $('#pkClear', body).onclick = () => { P.done = []; save(); openPacking(src); };
     $('#pkShare', body).onclick = () => {
       const t = (title, xs) => (xs.length ? `\n${title}\n` + xs.map((x) => `☐ ${x.label}${x.amt ? ` (${x.amt})` : ''}${x.note ? `. ${x.note}` : ''}`).join('\n') + '\n' : '');
-      shareText('Packing list', `${state.menu.title} packing list, ${P.n} of each drink\n` + t('BOTTLES', L.bottles) + t('JUICES, MIXERS AND FRESH', L.fresh) + t('GARNISHES', L.garnish) + t('BAR TOOLS', L.tools) + t('GLASSES', L.glasses));
+      shareText('Packing list', `${src.title} list, ${P.n} of each drink\n` + t('BOTTLES', L.bottles) + t('JUICES, MIXERS AND FRESH', L.fresh) + t('GARNISHES', L.garnish) + t('BAR TOOLS', L.tools) + t('GLASSES', L.glasses));
     };
     const ps = $('#pkShop', body);
     if (ps) ps.onclick = () => {
-      const miss = menuRecipes().flatMap((r) => r.ingredients).filter((i) => i.keys[0] && !i.optional && !PANTRY.has(i.keys[0]) && !state.bottles.some((b) => b.key === i.keys[0] && b.level !== 'out'));
+      const miss = recipes.flatMap((r) => r.ingredients).filter((i) => i.keys[0] && !i.optional && !PANTRY.has(i.keys[0]) && !state.bottles.some((b) => b.key === i.keys[0] && b.level !== 'out'));
       [...new Set(miss.map((i) => i.keys[0]))].forEach((k) => addShop(label(k), k));
       save(); toast('Added to Shop');
     };
@@ -1764,6 +1767,7 @@
         <label class="field">What guests read<textarea data-note="${esc(r.id)}">${esc(guestLine(r))}</textarea></label></div>`; }).join('')}
       <div class="btn-row"><button class="btn primary" id="pShare">Guest link</button><button class="btn" id="pPrint">Print</button></div>
       <button class="btn block" id="pPrep">📝 Send my prep list</button>
+      <button class="btn block" id="pPack">🧺 Everything to have on hand</button>
       <button class="btn small danger" id="pClear" style="margin-top:12px">Delete this party</button>`;
     v.querySelectorAll('[data-mview]').forEach((b) => b.addEventListener('click', () => { ui.menuView = b.dataset.mview; render(); }));
     // Save as she types so Share or Print right after has the newest words
@@ -1790,6 +1794,11 @@
     $('#pShare', v).onclick = shareParty;
     $('#pPrint', v).onclick = printParty;
     $('#pPrep', v).onclick = sharePrep;
+    $('#pPack', v).onclick = () => {
+      const P = curParty();
+      P.pack = P.pack || { n: P.guests || 10, done: [] };
+      openPacking({ recipes: partyRecipes(), title: `${P.title} on-hand`, pack: P.pack, intro: `Bottles, mixers, garnishes, tools and glasses for the ${partyRecipes().length} party drinks. Tick things off as you go.` });
+    };
     $('#pClear', v).onclick = () => { if (confirm(`Delete ${P.title}? This can’t be undone.`)) { state.parties = partyList().filter((x) => x !== P); ui.partyId = null; save(); render(); } };
   }
   function pickPartyDrinks() {
@@ -1956,7 +1965,7 @@
   }
 
   // ── Settings tab ─────────────────────────────────────────────────────────
-  const APP_VERSION = '60';
+  const APP_VERSION = '61';
   // Home screen apps have no reload button, so this pulls the newest files and reloads.
   async function refreshApp() {
     toast('Checking for updates…');
@@ -2204,7 +2213,7 @@
     ['🎚️', 'Keep levels current', 'Every bottle has level buttons: <b>Full</b>, <b>¾</b>, <b>Half</b>, <b>¼</b> and <b>Out</b>. Tap <b>¼</b> when a bottle runs down and it goes on your Shop list. Tap <b>Out</b> when it’s empty and recipes stop counting it. Have more than one of the same bottle? Use <b>−</b> and <b>+</b> to set how many. When you tap <b>Out</b> and you have a spare, the app opens the next bottle for you.'],
     ['🍸', 'Find a drink', 'The <b>Make</b> tab lists what you can mix right now. Below that, <b>One bottle away</b> shows what a single purchase would unlock. Tap any drink for the full recipe. While you mix, tap <b>Larger text</b> or <b>Keep screen on</b>. Mocktails are under <b>Zero Proof</b>.'],
     ['⭐', 'Make it yours', 'In any recipe, tap the <b>star</b> to save it to <b>★ Favorites</b> on the Make tab. Write notes, like who loved it, and search them later. Tap <b>Add photo</b> to snap a picture of your drink. Saw a drink online? On the <b>Make</b> tab, tap <b>Add your own recipe</b> and pick a screenshot. The app reads it and fills in the recipe for you to check. <b>Share recipe</b> sends a link that adds the drink to a friend’s app. Hosting a crowd? Pick <b>2, 4, 6, 8 or 12</b> above the ingredients and every amount scales for a batch.'],
-    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count. Every party stays on the Party list. Tap <b>Open</b> to see one again, or <b>Use again</b> to copy it for a new date.'],
+    ['🎄', 'Party invite', 'On the <b>Menu</b> tab, tap <b>Party</b>. Fill in the date, places, RSVP number and food, then tap <b>Choose party drinks</b>. Make-ahead batches you bottle and chill come first. <b>Guest link</b> sends one link with the invite, an RSVP button, map buttons and the menu. <b>Print</b> makes a one-page copy. <b>Send my prep list</b> gives you food amounts and batch recipes for your guest count. <b>Everything to have on hand</b> lists the bottles, mixers, garnishes, tools and glasses. Every party stays on the Party list. Tap <b>Open</b> to see one again, or <b>Use again</b> to copy it for a new date.'],
     ['🍽️', 'Dinner pairing', 'On the <b>Menu</b> tab, tap <b>Dinner</b>. Add each course, type the dish, and the app suggests a wine, a cocktail, a neat pour when it fits, and a zero-proof option. Bottles you own are marked. Share the dinner menu with guests or print it.'],
     ['🍷', 'Wine', 'In <b>My Bar</b>, tap the <b>Wine</b> category to see your wine rack. Scan or add bottles, use + and − as you buy and open them, and rate them with stars. Keep a <b>Wines to try</b> list, and open the <b>pairing guide</b> when you plan a meal.'],
     ['📜', 'Host guests', 'Open a drink and tap <b>Add to tonight’s menu</b>, or use <b>Choose drinks</b> on the <b>Menu</b> tab. You can edit the short line guests read. Tap <b>Guest link &amp; QR</b> and guests scan the code with their phone camera, with no app or account. Or tap <b>Print menu</b>. Making drinks somewhere else? Tap <b>Packing list</b> for the bottles, garnishes, tools and glasses to bring. When a guest picks a drink, tap that drink on your Menu tab to see how to make it.'],
