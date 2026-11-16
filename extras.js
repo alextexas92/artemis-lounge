@@ -196,6 +196,8 @@ window.AL_COURSE_DEFAULT = { 'Welcome drink': 'aperitif', 'Appetizer': 'salty', 
   window.AL_PARTY_PRESETS = [{
     id: 'holiday-2026',
     page: 'holiday.html', // link preview card with its own picture
+    // Short link for the party exactly as sent. holiday/index.html holds the same data.
+    short: { path: 'holiday/', data: {"k":"party","p":"holiday-2026","d":["batch-mulled-wine","batch-poinsettia",["White Russian","Vodka, coffee liqueur and cream, built over ice.",0],["God Mother","Vodka and amaretto, built over ice.",0],"batch-zp-snow-spritz"]} },
     label: 'Holiday Cocktail Party, Dec 5',
     party: {
       title: 'Holiday Cocktail Party', hosts: 'Morgan & Kelly', date: '2026-12-05', guests: 10,
